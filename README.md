@@ -7,7 +7,7 @@ This repository is the official implementation of MGL.
 To install requirements:
 
 ```setup
-conda env create -f environment.yaml
+conda env create -f environment.yaml -n mgl
 ```
 
 ## Data Process
