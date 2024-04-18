@@ -10,6 +10,7 @@ df = pd.read_csv(path, sep=';', encoding="latin-1")
 df.columns = ['user_id', 'isbn', 'rating']
 print(len(df))
 
+
 books_path = os.path.join(os.path.dirname(__file__), "BX_Books.csv")
 books = pd.read_csv(books_path, sep=';', encoding="latin-1")
 books.columns = ['isbn', 'title', 'author', 'year', 'publisher', 'img_url_s', 'img_url_m', 'img_url_l']

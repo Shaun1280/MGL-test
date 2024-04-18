@@ -26,6 +26,10 @@ pip install torch-sparse==0.6.9 torch-scatter==2.0.7 tqdm==4.54.1 pandas==1.4.4 
 To prepare the data for the model training:
 
 ```setup
+usage:
+python transform_dataset.py <dataset_path> <rating_file> <user_file> <item_file>
+
+example:
 python transform_dataset.py bx ratings_wo_duplicates.csv BX_users.csv BX_Books.csv
 
 output_path: dataset/

@@ -31,4 +31,4 @@ def check_pkl(path):
     # print(data['itemid'].value_counts())
     # print(data['timestamp'].value_counts())
 
-check_pkl(os.path.join(os.path.dirname(__file__), 'interact_test.pkl'))
+check_pkl(os.path.join(os.path.dirname(__file__), 'item_feature.pkl'))
