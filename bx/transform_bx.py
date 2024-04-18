@@ -20,6 +20,8 @@ def transform_rating():
     # drop index
     rating_file.drop(columns=['index'], inplace=True)
 
+    rating_file = rating_file[rating_file['score'] != 0]
+
     # add timestamp
     rating_file['timestamp'] = 0
 
@@ -84,9 +86,9 @@ def transform_item():
     item_file.to_pickle(os.path.join(output_path, 'item_feature.pkl'))
     print('item_feature.pkl saved')
 
-# transform_rating()
-# transform_user()
-# transform_item()
+transform_rating()
+transform_user()
+transform_item()
 
 user_feature = pd.read_pickle(os.path.join(output_path, 'user_feature.pkl'))
 print(user_feature.head())
