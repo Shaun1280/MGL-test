@@ -30,13 +30,13 @@ def transform_rating():
         os.makedirs(output_path)
     
     rating_file.to_csv(
-        os.path.join(output_path, 'rating.txt'),
+        os.path.join(output_path, 'ratings.txt'),
         sep='\t',
         header=False,
         index=False
     )
 
-    print('rating.txt saved')
+    print('ratings.txt saved')
 
 def transform_user():
     # read user.csv
