@@ -91,9 +91,16 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
             train_test_split(interact, train_size=split_rate, random_state=5, shuffle=shuffle_split)
     else:
         # Leave out the last 'leave_out' interactions for each user
-        interact_chunk = list(interact.groupby('userid'))
-        interact_train = [chunk[1][:-leave_out] if len(chunk[1]) > leave_out else chunk[1] for chunk in interact_chunk]
-        interact_test = [chunk[1][-leave_out:] if len(chunk[1]) > leave_out else pd.DataFrame() for chunk in interact_chunk]
+        interact_train = []
+        interact_test = []
+
+        for _, group in interact.groupby('userid'):
+            if len(group) > leave_out:
+                interact_train.append(group[:-leave_out])
+                interact_test.append(group[-leave_out:])
+            else:
+                interact_train.append(group)
+
         interact_train = pd.concat(interact_train, ignore_index=True)
         interact_test = pd.concat(interact_test, ignore_index=True)
 
