@@ -1,8 +1,5 @@
 import numpy as np
 
-import torch
-import random
-from tqdm import tqdm
 from rectorch.metrics import Metrics
 
 

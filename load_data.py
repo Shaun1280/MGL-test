@@ -1,9 +1,5 @@
 import torch
-import torch.nn as nn
-from torch import optim
-import torch.nn.functional as functional
 from torch.utils.data.dataset import Dataset
-from torch.utils.data import DataLoader
 
 from collections import defaultdict
 import numpy as np
@@ -11,18 +7,12 @@ import pandas as pd
 from random import choice
 
 import os
-from multiprocessing import Pool, cpu_count
-from functools import partial
-from copy import deepcopy
 
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
-
 
 
 def data_load(dataset_name, social_data= False, test_dataset= True, bottom=0, cv =None, split=None, user_fre_threshold = None, item_fre_threshold = None):
-    save_dir = "dataset/" + dataset_name
+    save_dir = os.path.join(os.path.dirname(__file__), "dataset/" + dataset_name)
     if not os.path.exists(save_dir):
         print("dataset is not exist!!!!")
         return None
@@ -212,7 +202,7 @@ class Data(object):
 
             else:
                 encoder = LabelEncoder()
-                encoder.fit(self.item_feature[f])
+                encoder.fit(self.item_feature[f].fillna('NA'))
                 self.item_feature[f] = encoder.transform(self.item_feature[f])
                 feature_dim = len(encoder.classes_)
                 self.item_feature_list.append({'feature_name':f, 'feature_dim':feature_dim})
