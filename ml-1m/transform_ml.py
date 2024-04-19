@@ -40,7 +40,7 @@ def transform_user():
         encoding="latin-1",
         engine="python"
     )
-    # keep only the first 5 columns
+
     # rename columns
     user_file.columns = ['user', 'gender', 'age', 'occupation', 'zip-code']
 

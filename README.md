@@ -26,20 +26,10 @@ pip install torch-sparse==0.6.9 torch-scatter==2.0.7 tqdm==4.54.1 pandas==1.4.4 
 To prepare the data for the model training:
 
 ```setup
-usage:
-python transform_dataset.py <dataset_path> <rating_file> <user_file> <item_file>
-
-example:
-python transform_dataset.py bx ratings_wo_duplicates.csv BX_users.csv BX_Books.csv
-
-output_path: dataset/
-```
-
-```setup
 python data_process.py
 ```
 
-Book crossing
+Book crossing:
 ```
 item_feature.pkl:
   Index(['item', 'title', 'Book-Author', 'Year-Of-Publication', 'Publisher'], dtype='object')
@@ -49,6 +39,18 @@ user_feature.pkl:
 
 interact_train.pkl:
   Index(['userid', 'itemid', 'score', 'timestamp'], dtype='object')
+```
+
+Movielens-1M:
+```
+item_feature.pkl:
+  ['item', 'title', 'genres', 'year']
+
+user_feature.pkl:
+   ['user', 'gender', 'age', 'occupation', 'zip-code']
+
+interact_train.pkl:
+  ['userid', 'itemid', 'score', 'timestamp']
 ```
 
 ## Training
