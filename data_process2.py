@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 
 
 def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
-                 item_freq_threshold=None, shuffle_split=True, with_time=False, leave_out=None):
+                 item_freq_threshold=None, shuffle_split=True, with_time=True, leave_out=None):
     save_dir = os.path.join(os.path.dirname(__file__), "dataset", dataset_name)
 
     if not os.path.exists(save_dir):
@@ -23,6 +23,7 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
     # Encode user and item ids
     if with_time == True:
         interact = interact.sort_values("timestamp")
+        print("interact sorted by timestamp...")
     
     # Filter out users that do not meet the frequency threshold
     if user_freq_threshold is not None:
@@ -49,6 +50,7 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
         'user': user_id_encoder.classes_.astype(str),
     })
     user_encoder_map.to_csv(os.path.join(save_dir, 'user_encoder_map.csv'), index=False)
+    print("user encoder map saved...")
 
     # save encoded user feature
     user_feature = pd.read_pickle(os.path.join(save_dir, 'user_feature.pkl'))
@@ -59,6 +61,7 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
         on='user'
     )
     user_feature.to_pickle(os.path.join(save_dir, 'encoded_user_feature.pkl'))
+    print("encoded user feature saved...")
 
     # item id label encoder
     item_id_encoder = LabelEncoder()
@@ -71,6 +74,7 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
         'item': item_id_encoder.classes_,
     })
     item_encoder_map.to_csv(os.path.join(save_dir, 'item_encoder_map.csv'), index=False)
+    print("item encoder map saved...")
     
     # save encoded item feature
     item_feature = pd.read_pickle(os.path.join(save_dir, 'item_feature.pkl'))
@@ -81,6 +85,7 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
         on='item'
     )
     item_feature.to_pickle(os.path.join(save_dir, 'encoded_item_feature.pkl'))
+    print("encoded item feature saved...")
 
     # Split the data into train and test sets
     if leave_out == None:
@@ -121,12 +126,14 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
     # Save the train and test sets
     interact_train.to_pickle(os.path.join(save_dir, "interact_train.pkl"))
     interact_test.to_pickle(os.path.join(save_dir, "interact_test.pkl"))
+    print("train and test sets saved...")
 
 if __name__ == '__main__':
     data_process('bx',
                  user_freq_threshold=None,
                  item_freq_threshold=None,
-                 leave_out=1
+                 with_time=True,
+                 leave_out=None
                 );
 
 
