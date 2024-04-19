@@ -91,9 +91,9 @@ def one_train(Data, opt):
 
     test_dataset = Data.test_dataset
     test_loader = DataLoader(
-        test_dataset, shuffle=False, batch_size=opt.batch_size, collate_fn=my_collate_test)
+        test_dataset, shuffle=False, batch_size=opt.batch_size, collate_fn=None)
 
-    device = torch.device("cuda:{0}".format(cuda_device))
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     print(device)
     index = [Data.interact_train['userid'].tolist(), Data.interact_train['itemid'].tolist()]
@@ -101,7 +101,8 @@ def one_train(Data, opt):
 
     interact_matrix = torch.sparse_coo_tensor(index, value, (Data.user_num, Data.item_num)).to(device)
 
-    i2i = torch.sparse.mm(interact_matrix.t(), interact_matrix)
+    i2i = torch.sparse.mm(interact_matrix.t(), interact_matrix.to_dense())
+    i2i = i2i.to_sparse()
 
     def sparse_where(A):
         A = A.coalesce()
@@ -142,15 +143,15 @@ def one_train(Data, opt):
 
     print('Start training...')
     start_epoch = 0
-    directory = directory_name_generate(model, opt, "no early stop")
+    # directory = directory_name_generate(model, opt, "no early stop")
     model = model.to(device)
 
-    support_loader = DataLoader(i2i_pair, shuffle=True, batch_size=opt.batch_size, collate_fn=collate_test_i2i)
+    support_loader = DataLoader(i2i_pair, shuffle=True, batch_size=opt.batch_size, collate_fn=None)
 
     for epoch in range(start_epoch, opt.epoch):
         model.train()
 
-        train_loader = DataLoader(Data.train_dataset, shuffle=True, batch_size=opt.batch_size, collate_fn=my_collate_train)
+        train_loader = DataLoader(Data.train_dataset, shuffle=True, batch_size=opt.batch_size, collate_fn=None)
 
         support_iter = iter(support_loader)
 
