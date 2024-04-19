@@ -130,8 +130,8 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
 
 if __name__ == '__main__':
     data_process('bx',
-                 user_freq_threshold=2,
-                 item_freq_threshold=2,
+                 user_freq_threshold=4,
+                 item_freq_threshold=4,
                  with_time=True,
                  leave_out=None
                 );
