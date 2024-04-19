@@ -66,7 +66,7 @@ old:
 python train.py
 
 new:
-python train2.py
+python train2.py --dataset bx --epoch 5
 ```
 > Output: the file "model.tar"
 
