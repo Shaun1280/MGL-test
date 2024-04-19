@@ -26,7 +26,11 @@ pip install torch-sparse==0.6.9 torch-scatter==2.0.7 tqdm==4.54.1 pandas==1.4.4 
 To prepare the data for the model training:
 
 ```setup
+old:
 python data_process.py
+
+new:
+python data_process2.py
 ```
 
 Book crossing:
@@ -58,7 +62,11 @@ interact_train.pkl:
 To train the model(s) in the paper:
 
 ```setup
+old:
 python train.py
+
+new:
+python train2.py
 ```
 > Output: the file "model.tar"
 
