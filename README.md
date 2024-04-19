@@ -32,13 +32,13 @@ python data_process.py
 Book crossing:
 ```
 item_feature.pkl:
-  Index(['item', 'title', 'Book-Author', 'Year-Of-Publication', 'Publisher'], dtype='object')
+  ['item', 'title', 'Book-Author', 'Year-Of-Publication', 'Publisher']
 
 user_feature.pkl:
-   Index(['user', 'location', 'age'], dtype='object')
+  ['user', 'location', 'age']
 
 interact_train.pkl:
-  Index(['userid', 'itemid', 'score', 'timestamp'], dtype='object')
+  ['userid', 'itemid', 'score', 'timestamp'] (timestamp = 0)
 ```
 
 Movielens-1M:
