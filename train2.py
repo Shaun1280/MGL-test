@@ -114,18 +114,19 @@ def one_train(Data, opt):
     
     i2i = sparse_where(i2i)
 
-    def get_0_1_array(item_num,rate=0.2):
+    def get_0_1_array(item_num, rate=0.2):
         zeros_num = int(item_num * rate)
-        new_array = np.ones(item_num * item_num)
-        new_array[:zeros_num] = 0 
-        np.random.shuffle(new_array)
-        re_array = new_array.reshape(item_num * item_num)
-        re_array = torch.from_numpy(re_array).to_sparse().to(device)
+        new_array = np.ones((item_num, item_num))
+        for row in new_array:
+            row[:zeros_num] = 0
+            np.random.shuffle(row)
+        re_array = torch.from_numpy(new_array).to_sparse().to(device)
         return re_array
 
 
     mask = get_0_1_array(Data.item_num)
-    i2i = mask * i2i * mask.t()
+    # inplace operation
+    i2i.mul_(mask).mul_(mask.t())
 
     i2i = i2i.coalesce()
 
