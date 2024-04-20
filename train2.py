@@ -59,9 +59,6 @@ def get_config():
     
     return opt
 
-cuda_device = '4'
-
-
 def my_collate_train(batch):
     user_id = [item[0] for item in batch]
     pos_item = [item[1] for item in batch]
