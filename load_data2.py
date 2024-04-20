@@ -22,10 +22,18 @@ class Data(object):
         self.user_list = list(range(self.user_num))
         self.item_list = list(range(self.item_num))
 
+        # preprocess features
         self.user_feature_list = None
         self.item_feature_list = None
         self.user_feature_matrix = None
         self.__preprocess_features()
+
+        # generate train and test set (maps)
+        self.trainset_user = defaultdict(dict)
+        self.trainset_item = defaultdict(dict)
+        self.testset_user = defaultdict(dict)
+        self.testset_item = defaultdict(dict)
+        self.__generate_set()
 
         self.user_means = {} # mean values of users's ratings
         self.item_means = {} # mean values of items's ratings
@@ -36,28 +44,22 @@ class Data(object):
 
         self.global_mean = 0
 
-        self.trainset_user = defaultdict(dict)
-        self.trainset_item = defaultdict(dict)
-        self.testset_user = defaultdict(dict)
-        self.testset_item = defaultdict(dict)
-
-        self.__generate_set()
         self.__computeItemMean()
         self.__computeUserMean()
         self.__globalAverage()
 
+        # create datasets
         self.train_dataset = Train_dataset(self.interact_train, self.item_num, self.trainset_user)
         self.test_dataset = Test_dataset(self.testset_user, self.item_num)
         self.test_dataset_one_plus_all = Test_dataset_one_plus_all(self.interact_test)
 
-
+        # create masks
         user_historical_mask = np.ones((self.user_num, self.item_num))
         for uuu in self.trainset_user.keys():
             item_list = list(self.trainset_user[uuu].keys())
             if len(item_list) != 0:
                 user_historical_mask[uuu, item_list] = 0
         
-
         self.user_historical_mask = torch.from_numpy(user_historical_mask)
 
     # load processed data
@@ -91,22 +93,15 @@ class Data(object):
             self.interact_train = self.interact_train[self.interact_train['score'] > bottom]
             self.interact_test = self.interact_test[self.interact_test['score'] > bottom]  
 
+    # generate train and test set (maps)
     def __generate_set(self):
-        for row in self.interact_train.itertuples(index=False):
-            userName = row.userid
-            itemName = row.itemid
-            rating = row.score
-            self.trainset_user[userName][itemName] = rating
-            self.trainset_item[itemName][userName] = rating
+        def process_interactions(interactions, user_set, item_set):
+            for row in interactions.itertuples(index=False):
+                user_set[row.userid][row.itemid] = row.score
+                item_set[row.itemid][row.userid] = row.score
 
-
-        for row in self.interact_test.itertuples(index=False):
-            userName = row.userid
-            itemName = row.itemid
-            rating = row.score
-            self.testset_user[userName][itemName] = rating
-            self.testset_item[itemName][userName] = rating
-
+        process_interactions(self.interact_train, self.trainset_user, self.trainset_item)
+        process_interactions(self.interact_test, self.testset_user, self.testset_item)
 
     def __globalAverage(self):
         total = sum(self.user_means.values())
