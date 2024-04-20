@@ -20,7 +20,7 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
         names= ['userid', 'itemid', 'score', 'timestamp']
     )
 
-    # Encode user and item ids
+    # if dataset has time information, sort the interactions by timestamp
     if with_time == True:
         interact = interact.sort_values("timestamp")
         print("interact sorted by timestamp...")
