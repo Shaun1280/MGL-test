@@ -22,16 +22,19 @@ class Data(object):
         self.user_list = list(range(self.user_num))
         self.item_list = list(range(self.item_num))
 
-        self.feature_extract()
+        self.user_feature_list = None
+        self.item_feature_list = None
+        self.user_feature_matrix = None
+        self.__preprocess_features()
 
-        self.userMeans = {} #mean values of users's ratings
-        self.itemMeans = {} #mean values of items's ratings
-        self.userDegrees = {} #users' degrees
-        self.itemDegrees = {} #items' degrees
-        self.userProbs = {} #probability of being selected by the user
-        self.itemProbs = {} #probability of being selected
+        self.user_means = {} # mean values of users's ratings
+        self.item_means = {} # mean values of items's ratings
+        self.user_degrees = {} # users' degrees
+        self.item_degrees = {} # items' degrees
+        self.user_probs = {} # probability of being selected by the user
+        self.item_probs = {} # probability of being selected
 
-        self.globalMean = 0
+        self.global_mean = 0
 
         self.trainSet_u = defaultdict(dict)
         self.trainSet_i = defaultdict(dict)
@@ -106,51 +109,39 @@ class Data(object):
 
 
     def __globalAverage(self):
-        total = sum(self.userMeans.values())
+        total = sum(self.user_means.values())
         if total==0:
-            self.globalMean = 0
+            self.global_mean = 0
         else:
-            self.globalMean = total/len(self.userMeans)
+            self.global_mean = total/len(self.user_means)
 
     def __computeUserMean(self):
         for u in self.user_list:
-            self.userMeans[u] = sum(self.trainSet_u[u].values())/(len(self.trainSet_u[u]) + 0.00000001)
-            self.userDegrees[u] = len(list(self.trainSet_u[u].keys()))
-            self.userProbs[u] = len(self.trainSet_u[u].values()) /len(self.interact_train)
+            self.user_means[u] = sum(self.trainSet_u[u].values())/(len(self.trainSet_u[u]) + 0.00000001)
+            self.user_degrees[u] = len(list(self.trainSet_u[u].keys()))
+            self.user_probs[u] = len(self.trainSet_u[u].values()) /len(self.interact_train)
 
     def __computeItemMean(self):
         for c in self.item_list:
-            self.itemMeans[c] = sum(self.trainSet_i[c].values())/(len(self.trainSet_i[c])+0.00000001)
-            self.itemDegrees[c] = len(list(self.trainSet_i[c].keys()))
-            self.itemProbs[c] = len(self.trainSet_i[c].values()) /len(self.interact_train)
+            self.item_means[c] = sum(self.trainSet_i[c].values())/(len(self.trainSet_i[c])+0.00000001)
+            self.item_degrees[c] = len(list(self.trainSet_i[c].keys()))
+            self.item_probs[c] = len(self.trainSet_i[c].values()) /len(self.interact_train)
 
-    def userRated(self,u):
-        return list(self.trainSet_u[u].keys()),list(self.trainSet_u[u].values())
+    def __preprocess_features(self, remove_cols=['user', 'encoded']):
+        user_feature_name_list = [col for col in self.user_feature.columns if col not in remove_cols]
+        
+        # user_feature is a dataframe with columns: user, feature1, feature2, ...,
+        self.user_feature_list = []
+        for f in user_feature_name_list:
+            encoder = LabelEncoder()
+            self.user_feature[f] = encoder.fit_transform(self.user_feature[f])
+            feature_dim = len(encoder.classes_)
+            # feature_dim is the number of unique values in the feature 
+            self.user_feature_list.append({'feature_name':f, 'feature_dim':feature_dim})
 
-    def itemRated(self,i):
-        return list(self.trainSet_i[i].keys()),list(self.trainSet_i[i].values())
-
-
-    def feature_extract(self):
-        try:
-            user_feature_name_list = list(self.user_feature.columns)
-            user_feature_name_list.remove("user")
-            user_feature_name_list.remove("encoded")
-
-            self.user_feature_list = []
-            for f in user_feature_name_list:
-                encoder = LabelEncoder()
-                encoder.fit(self.user_feature[f])
-                self.user_feature[f] = encoder.transform(self.user_feature[f])
-                feature_dim = len(encoder.classes_)
-                self.user_feature_list.append({'feature_name':f, 'feature_dim':feature_dim})
-
-            self.user_feature_list.append({'feature_name':'encoded', 'feature_dim':self.user_num})
-            self.user_feature_matrix = torch.from_numpy(self.user_feature[[f['feature_name'] for f in self.user_feature_list]].values)
-        except:
-            self.user_feature_list = None
-            self.user_feature_matrix = None
-
+        self.user_feature_list.append({'feature_name':'encoded', 'feature_dim':self.user_num})
+        # (one hot encoding)
+        self.user_feature_matrix = torch.tensor(self.user_feature[[f['feature_name'] for f in self.user_feature_list]].values)
 
         self.dense_f_list_transforms = {}
 
