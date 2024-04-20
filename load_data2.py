@@ -57,6 +57,7 @@ class Data(object):
 
         self.user_historical_mask = torch.from_numpy(user_historical_mask)
 
+    # load processed data
     def __data_load(self, dataset_name, bottom=None):
         save_dir = os.path.join(os.path.dirname(__file__), "dataset/" + dataset_name)
         if not os.path.exists(save_dir):
@@ -82,6 +83,7 @@ class Data(object):
         self.user_encoder_map = pd.read_csv(os.path.join(save_dir, 'user_encoder_map.csv'))
         self.item_num, self.user_num = len(self.item_encoder_map), len(self.user_encoder_map)
 
+        # filter the data by bottom (e.g. implicit feedback = 0)
         if bottom is not None:
             self.interact_train = self.interact_train[self.interact_train['score'] > bottom]
             self.interact_test = self.interact_test[self.interact_test['score'] > bottom]  
