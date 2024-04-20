@@ -7,7 +7,7 @@ from collections import defaultdict
 
 from model import Model
 
-import load_data
+import load_data2 as load_data
 
 from tqdm import tqdm
 import metric
