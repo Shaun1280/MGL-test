@@ -251,7 +251,7 @@ def one_train(Data, opt):
         print("body_NDCG@{}: {}".format(K, np.mean(body_NDCG[K])))
         print("body_RECALL@{}: {}".format(K, np.mean(body_RECALL[K])))
     
-
-opt = get_config()
-Data = load_data.Data(opt)
-one_train(Data, opt)
+if __name__ == '__main__':
+    opt = get_config()
+    Data = load_data.Data(opt)
+    one_train(Data, opt)
