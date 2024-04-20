@@ -11,52 +11,13 @@ import os
 from sklearn.preprocessing import LabelEncoder
 
 
-def data_load(dataset_name, bottom=None):
-    save_dir = os.path.join(os.path.dirname(__file__), "dataset/" + dataset_name)
-    if not os.path.exists(save_dir):
-        print("dataset is not exist!!!!")
-        return None
-
-    if os.path.exists(save_dir + '/encoded_user_feature.pkl'):
-        user_feature = pd.read_pickle(save_dir + '/encoded_user_feature.pkl')
-        print("user_feature", user_feature.shape)
-    else:
-        user_feature = None
-
-    if os.path.exists(save_dir + '/encoded_item_feature.pkl'):
-        item_feature = pd.read_pickle(save_dir + '/encoded_item_feature.pkl')
-        print("item_feature", item_feature.shape)
-    else:
-        item_feature = None
-
-
-    interact_train = pd.read_pickle(save_dir + '/interact_train.pkl')
-    interact_test = pd.read_pickle(save_dir + '/interact_test.pkl')
-
-    item_encoder_map = pd.read_csv(save_dir + '/item_encoder_map.csv')
-    item_num = len(item_encoder_map)
-    user_encoder_map = pd.read_csv(save_dir + '/user_encoder_map.csv')
-    user_num = len(user_encoder_map)
-
-    if bottom is not None:
-        interact_train = interact_train[interact_train['score'] > bottom]
-        interact_test = interact_test[interact_test['score'] > bottom]
-
-    return interact_train, interact_test, user_num, item_num, user_feature, item_feature
-
-
-
-    
-
-
 class Data(object):
-    def __init__(self, interact_train, interact_test, user_num, item_num, user_feature, item_feature):
-        self.interact_train = interact_train
-        self.interact_test = interact_test
-        self.user_num = user_num
-        self.item_num = item_num
-        self.user_feature = user_feature
-        self.item_feature = item_feature
+    def __init__(self, opt):
+        # load data
+        self.interact_train, self.interact_test = None, None
+        self.user_num, self.item_num = None, None
+        self.user_feature, self.item_feature = None, None
+        self.__data_load(opt.dataset_name, bottom=opt.implcit_bottom)
 
         self.user_list = list(range(self.user_num))
         self.item_list = list(range(self.item_num))
@@ -87,7 +48,7 @@ class Data(object):
         self.test_dataset_one_plus_all = Test_dataset_one_plus_all(self.interact_test)
 
 
-        user_historical_mask = np.ones((user_num, item_num))
+        user_historical_mask = np.ones((self.user_num, self.item_num))
         for uuu in self.trainSet_u.keys():
             item_list = list(self.trainSet_u[uuu].keys())
             if len(item_list) != 0:
@@ -96,7 +57,34 @@ class Data(object):
 
         self.user_historical_mask = torch.from_numpy(user_historical_mask)
 
-        
+    def __data_load(self, dataset_name, bottom=None):
+        save_dir = os.path.join(os.path.dirname(__file__), "dataset/" + dataset_name)
+        if not os.path.exists(save_dir):
+            print("dataset is not exist!!!!")
+            return None
+
+        if os.path.exists(save_dir + '/encoded_user_feature.pkl'):
+            self.user_feature = pd.read_pickle(save_dir + '/encoded_user_feature.pkl')
+            print("encoded user_feature loaded", self.user_feature.shape)
+        else:
+            print("user_feature is not exist!!!!")
+
+        if os.path.exists(save_dir + '/encoded_item_feature.pkl'):
+            self.item_feature = pd.read_pickle(save_dir + '/encoded_item_feature.pkl')
+            print("encoded item_feature loaded", self.item_feature.shape)
+        else:
+            print("item_feature is not exist!!!!")
+
+        self.interact_train = pd.read_pickle(os.path.join(save_dir, 'interact_train.pkl'))
+        self.interact_test = pd.read_pickle(os.path.join(save_dir, 'interact_test.pkl'))
+
+        self.item_encoder_map = pd.read_csv(os.path.join(save_dir, 'item_encoder_map.csv'))
+        self.user_encoder_map = pd.read_csv(os.path.join(save_dir, 'user_encoder_map.csv'))
+        self.item_num, self.user_num = len(self.item_encoder_map), len(self.user_encoder_map)
+
+        if bottom is not None:
+            self.interact_train = self.interact_train[self.interact_train['score'] > bottom]
+            self.interact_test = self.interact_test[self.interact_test['score'] > bottom]  
 
     def __generateSet(self):
         for row in self.interact_train.itertuples(index=False):

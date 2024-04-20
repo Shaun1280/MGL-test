@@ -253,13 +253,5 @@ def one_train(Data, opt):
     
 
 opt = get_config()
-interact_train, interact_test, user_num, item_num, user_feature, item_feature = load_data.data_load(opt.dataset_name, bottom=opt.implcit_bottom)
-Data = load_data.Data(interact_train, interact_test, user_num, item_num, user_feature, item_feature)
+Data = load_data.Data(opt)
 one_train(Data, opt)
-
-
-
-
-
-
-
