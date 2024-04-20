@@ -184,10 +184,10 @@ def one_train(Data, opt):
                 pbar.update(1)
 
 
-    torch.save({
-        'sd': model.state_dict(),
-        'opt':opt,
-    }, os.path.join(os.path.dirname(__file__), 'model', 'model.tar'))
+    # torch.save({
+    #     'sd': model.state_dict(),
+    #     'opt':opt,
+    # }, os.path.join(os.path.dirname(__file__), 'model', 'model.tar'))
 
     # test
     best_checkpoint = torch.load(os.path.join(os.path.dirname(__file__), 'model', 'model.tar'))
