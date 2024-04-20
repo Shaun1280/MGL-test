@@ -36,24 +36,24 @@ class Data(object):
 
         self.global_mean = 0
 
-        self.trainSet_u = defaultdict(dict)
-        self.trainSet_i = defaultdict(dict)
-        self.testSet_u = defaultdict(dict)
-        self.testSet_i = defaultdict(dict)
+        self.trainset_user = defaultdict(dict)
+        self.trainset_item = defaultdict(dict)
+        self.testset_user = defaultdict(dict)
+        self.testset_item = defaultdict(dict)
 
-        self.__generateSet()
+        self.__generate_set()
         self.__computeItemMean()
         self.__computeUserMean()
         self.__globalAverage()
 
-        self.train_dataset = Train_dataset(self.interact_train, self.item_num, self.trainSet_u)
-        self.test_dataset = Test_dataset(self.testSet_u, self.item_num)
+        self.train_dataset = Train_dataset(self.interact_train, self.item_num, self.trainset_user)
+        self.test_dataset = Test_dataset(self.testset_user, self.item_num)
         self.test_dataset_one_plus_all = Test_dataset_one_plus_all(self.interact_test)
 
 
         user_historical_mask = np.ones((self.user_num, self.item_num))
-        for uuu in self.trainSet_u.keys():
-            item_list = list(self.trainSet_u[uuu].keys())
+        for uuu in self.trainset_user.keys():
+            item_list = list(self.trainset_user[uuu].keys())
             if len(item_list) != 0:
                 user_historical_mask[uuu, item_list] = 0
         
@@ -91,21 +91,21 @@ class Data(object):
             self.interact_train = self.interact_train[self.interact_train['score'] > bottom]
             self.interact_test = self.interact_test[self.interact_test['score'] > bottom]  
 
-    def __generateSet(self):
+    def __generate_set(self):
         for row in self.interact_train.itertuples(index=False):
             userName = row.userid
             itemName = row.itemid
             rating = row.score
-            self.trainSet_u[userName][itemName] = rating
-            self.trainSet_i[itemName][userName] = rating
+            self.trainset_user[userName][itemName] = rating
+            self.trainset_item[itemName][userName] = rating
 
 
         for row in self.interact_test.itertuples(index=False):
             userName = row.userid
             itemName = row.itemid
             rating = row.score
-            self.testSet_u[userName][itemName] = rating
-            self.testSet_i[itemName][userName] = rating
+            self.testset_user[userName][itemName] = rating
+            self.testset_item[itemName][userName] = rating
 
 
     def __globalAverage(self):
@@ -117,15 +117,15 @@ class Data(object):
 
     def __computeUserMean(self):
         for u in self.user_list:
-            self.user_means[u] = sum(self.trainSet_u[u].values())/(len(self.trainSet_u[u]) + 0.00000001)
-            self.user_degrees[u] = len(list(self.trainSet_u[u].keys()))
-            self.user_probs[u] = len(self.trainSet_u[u].values()) /len(self.interact_train)
+            self.user_means[u] = sum(self.trainset_user[u].values())/(len(self.trainset_user[u]) + 0.00000001)
+            self.user_degrees[u] = len(list(self.trainset_user[u].keys()))
+            self.user_probs[u] = len(self.trainset_user[u].values()) /len(self.interact_train)
 
     def __computeItemMean(self):
         for c in self.item_list:
-            self.item_means[c] = sum(self.trainSet_i[c].values())/(len(self.trainSet_i[c])+0.00000001)
-            self.item_degrees[c] = len(list(self.trainSet_i[c].keys()))
-            self.item_probs[c] = len(self.trainSet_i[c].values()) /len(self.interact_train)
+            self.item_means[c] = sum(self.trainset_item[c].values())/(len(self.trainset_item[c])+0.00000001)
+            self.item_degrees[c] = len(list(self.trainset_item[c].keys()))
+            self.item_probs[c] = len(self.trainset_item[c].values()) /len(self.interact_train)
 
     def __preprocess_features(self, remove_cols=['user', 'encoded']):
         user_feature_name_list = [col for col in self.user_feature.columns if col not in remove_cols]
@@ -194,11 +194,11 @@ class Data(object):
 
 
 class Train_dataset(Dataset):
-    def __init__(self, interact_train, item_num, trainSet_u):
+    def __init__(self, interact_train, item_num, trainset_user):
         super(Train_dataset, self).__init__()
         self.interact_train = interact_train
         self.item_list = list(range(item_num))
-        self.trainSet_u = trainSet_u
+        self.trainset_user = trainset_user
 
     def __len__(self):
         return len(self.interact_train)
@@ -209,7 +209,7 @@ class Train_dataset(Dataset):
         user = entry.userid
         pos_item = entry.itemid
         neg_item = choice(self.item_list)
-        while neg_item in self.trainSet_u[user]:
+        while neg_item in self.trainset_user[user]:
             neg_item = choice(self.item_list)
 
         return user, pos_item, neg_item
@@ -236,11 +236,11 @@ class Test_dataset_one_plus_all(Dataset):
 
 
 class Test_dataset(Dataset):
-    def __init__(self, testSet_u, item_num):
+    def __init__(self, testset_user, item_num):
         super(Test_dataset, self).__init__()
 
-        self.testSet_u = testSet_u
-        self.user_list = list(testSet_u.keys())
+        self.testset_user = testset_user
+        self.user_list = list(testset_user.keys())
         self.item_num = item_num
 
     def __len__(self):
@@ -248,6 +248,6 @@ class Test_dataset(Dataset):
 
     def __getitem__(self, idx):
         user = self.user_list[idx]
-        item_list = torch.tensor(list(self.testSet_u[user].keys()))
+        item_list = torch.tensor(list(self.testset_user[user].keys()))
         tensor = torch.zeros(self.item_num).scatter(0, item_list, 1)
         return user, tensor
