@@ -12,6 +12,7 @@ import load_data
 from tqdm import tqdm
 import metric
 import argparse
+import os
 
 
 def get_config():
@@ -189,7 +190,10 @@ def one_train(Data, opt):
     torch.save({
         'sd': model.state_dict(),
         'opt':opt,
-    }, 'model.tar')
+    }, os.path.join(os.path.dirname(__file__), 'model', 'model.tar'))
+
+    # test
+    best_checkpoint = torch.load(os.path.join(os.path.dirname(__file__), 'model', 'model.tar'))
 
     # remove the historical interaction in the prediction
     model = Model(Data, opt, device)
