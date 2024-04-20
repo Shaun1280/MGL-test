@@ -105,10 +105,10 @@ class Model(nn.Module):
         self.L = opt.L
         self.link_topk = opt.link_topk
 
-        self.userDegrees = Data.userDegrees 
-        self.itemDegrees = Data.itemDegrees
+        self.user_degrees = Data.user_degrees 
+        self.item_degrees = Data.item_degrees
 
-        sorted_item_degrees = sorted(self.itemDegrees.items(), key=lambda x: x[0])
+        sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[0])
         _, item_degree_list = zip(*sorted_item_degrees)
         self.item_degree_numpy = np.array(item_degree_list)
 
@@ -145,9 +145,9 @@ class Model(nn.Module):
         self.joint_adjaceny_matrix_normal_spatial = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), joint_adjaceny_matrix_normal_value, (self.user_num+self.item_num, self.user_num+self.item_num)).to(self.device)
         
 
-    def link_predict(self, itemDegrees, top_rate):
+    def link_predict(self, item_degrees, top_rate):
 
-        sorted_item_degrees = sorted(itemDegrees.items(), key=lambda x: x[1])
+        sorted_item_degrees = sorted(item_degrees.items(), key=lambda x: x[1])
         item_list_sorted, d_item = zip(*sorted_item_degrees)
         item_tail = torch.tensor(item_list_sorted).to(self.device)
 
@@ -220,9 +220,9 @@ class Model(nn.Module):
         return reg_loss
 
 
-    def q_link_predict(self, itemDegrees, top_rate, fast_weights):
+    def q_link_predict(self, item_degrees, top_rate, fast_weights):
 
-        sorted_item_degrees = sorted(itemDegrees.items(), key=lambda x: x[1])
+        sorted_item_degrees = sorted(item_degrees.items(), key=lambda x: x[1])
         item_list_sorted, d_item = zip(*sorted_item_degrees)
         item_tail = torch.tensor(item_list_sorted).to(self.device)
 
@@ -268,7 +268,7 @@ class Model(nn.Module):
 
 
     def q_forward(self, user_id, pos_item, neg_item, fast_weights):
-        row_index, colomn_index, joint_enhanced_value = self.q_link_predict(self.itemDegrees, self.top_rate, fast_weights)
+        row_index, colomn_index, joint_enhanced_value = self.q_link_predict(self.item_degrees, self.top_rate, fast_weights)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
@@ -300,7 +300,7 @@ class Model(nn.Module):
 
     # full item set
     def predict(self, user_id):
-        row_index, colomn_index, joint_enhanced_value = self.link_predict(self.itemDegrees, self.top_rate)
+        row_index, colomn_index, joint_enhanced_value = self.link_predict(self.item_degrees, self.top_rate)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
@@ -329,7 +329,7 @@ class Model(nn.Module):
         return score
 
     def compute_embeddings(self):
-        row_index, colomn_index, joint_enhanced_value = self.link_predict(self.itemDegrees, self.top_rate)
+        row_index, colomn_index, joint_enhanced_value = self.link_predict(self.item_degrees, self.top_rate)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
         # user_embeddings, item_embeddings = self.compute_embeddings()

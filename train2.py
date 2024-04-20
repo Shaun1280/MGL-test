@@ -221,7 +221,7 @@ def one_train(Data, opt):
 
             for K in opt.K_list:
                 ndcg, recall, mrr = metric.ranking_meansure_testset(score, ground_truth, K, list(Data.testSet_i.keys()))
-                head_ndcg, head_recall, tail_ndcg, tail_recall, body_ndcg, body_recall = metric.ranking_meansure_degree_testset(score, ground_truth, K, Data.itemDegrees, opt.seperate_rate, list(Data.testSet_i.keys()))
+                head_ndcg, head_recall, tail_ndcg, tail_recall, body_ndcg, body_recall = metric.ranking_meansure_degree_testset(score, ground_truth, K, Data.item_degrees, opt.seperate_rate, list(Data.testSet_i.keys()))
                 NDCG[K].append(ndcg)
                 RECALL[K].append(recall)
                 MRR[K].append(mrr)
