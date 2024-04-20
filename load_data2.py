@@ -11,7 +11,7 @@ import os
 from sklearn.preprocessing import LabelEncoder
 
 
-def data_load(dataset_name, social_data= False, test_dataset= True, bottom=0, cv =None, split=None, user_fre_threshold = None, item_fre_threshold = None):
+def data_load(dataset_name, bottom=None):
     save_dir = os.path.join(os.path.dirname(__file__), "dataset/" + dataset_name)
     if not os.path.exists(save_dir):
         print("dataset is not exist!!!!")
@@ -19,33 +19,30 @@ def data_load(dataset_name, social_data= False, test_dataset= True, bottom=0, cv
 
     if os.path.exists(save_dir + '/encoded_user_feature.pkl'):
         user_feature = pd.read_pickle(save_dir + '/encoded_user_feature.pkl')
+        print("user_feature", user_feature.shape)
     else:
         user_feature = None
 
-
     if os.path.exists(save_dir + '/encoded_item_feature.pkl'):
         item_feature = pd.read_pickle(save_dir + '/encoded_item_feature.pkl')
+        print("item_feature", item_feature.shape)
     else:
         item_feature = None
 
-    social = None
 
+    interact_train = pd.read_pickle(save_dir + '/interact_train.pkl')
+    interact_test = pd.read_pickle(save_dir + '/interact_test.pkl')
 
-    if test_dataset == True:
-        interact_train = pd.read_pickle(save_dir + '/interact_train.pkl')
-        interact_test = pd.read_pickle(save_dir + '/interact_test.pkl')
-        if social_data == True:
-            social = pd.read_pickle(save_dir + '/social.pkl')
-        item_encoder_map = pd.read_csv(save_dir + '/item_encoder_map.csv')
-        item_num = len(item_encoder_map)
-        user_encoder_map = pd.read_csv(save_dir + '/user_encoder_map.csv')
-        user_num = len(user_encoder_map)
+    item_encoder_map = pd.read_csv(save_dir + '/item_encoder_map.csv')
+    item_num = len(item_encoder_map)
+    user_encoder_map = pd.read_csv(save_dir + '/user_encoder_map.csv')
+    user_num = len(user_encoder_map)
 
-        if bottom != None:
-            interact_train = interact_train[interact_train['score'] > bottom]
-            interact_test = interact_test[interact_test['score'] > bottom]
+    if bottom is not None:
+        interact_train = interact_train[interact_train['score'] > bottom]
+        interact_test = interact_test[interact_test['score'] > bottom]
 
-        return interact_train, interact_test, social, user_num, item_num, user_feature, item_feature
+    return interact_train, interact_test, user_num, item_num, user_feature, item_feature
 
 
 
@@ -53,10 +50,9 @@ def data_load(dataset_name, social_data= False, test_dataset= True, bottom=0, cv
 
 
 class Data(object):
-    def __init__(self, interact_train, interact_test, social, user_num, item_num, user_feature, item_feature):
+    def __init__(self, interact_train, interact_test, user_num, item_num, user_feature, item_feature):
         self.interact_train = interact_train
         self.interact_test = interact_test
-        self.social = social
         self.user_num = user_num
         self.item_num = item_num
         self.user_feature = user_feature
