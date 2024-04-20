@@ -35,18 +35,15 @@ class Data(object):
         self.testset_item = defaultdict(dict)
         self.__generate_set()
 
+        # compute means, degrees, probs, and global mean
         self.user_means = {} # mean values of users's ratings
         self.item_means = {} # mean values of items's ratings
         self.user_degrees = {} # users' degrees
         self.item_degrees = {} # items' degrees
         self.user_probs = {} # probability of being selected by the user
         self.item_probs = {} # probability of being selected
-
         self.global_mean = 0
-
-        self.__computeItemMean()
-        self.__computeUserMean()
-        self.__globalAverage()
+        self.__compute_statistics()
 
         # create datasets
         self.train_dataset = Train_dataset(self.interact_train, self.item_num, self.trainset_user)
@@ -102,25 +99,20 @@ class Data(object):
 
         process_interactions(self.interact_train, self.trainset_user, self.trainset_item)
         process_interactions(self.interact_test, self.testset_user, self.testset_item)
+        
+    def __compute_statistics(self):
+        def compute_mean(keys, trainset, means, degrees, probs):
+            EPSILON = 0.00000001
+            for key in keys:
+                values = trainset[key].values()
+                means[key] = sum(values) / (len(values) + EPSILON)
+                degrees[key] = len(trainset[key])
+                probs[key] = len(values) / len(self.interact_train)
 
-    def __globalAverage(self):
-        total = sum(self.user_means.values())
-        if total==0:
-            self.global_mean = 0
-        else:
-            self.global_mean = total/len(self.user_means)
+        compute_mean(self.user_list, self.trainset_user, self.user_means, self.user_degrees, self.user_probs)
+        compute_mean(self.item_list, self.trainset_item, self.item_means, self.item_degrees, self.item_probs)
 
-    def __computeUserMean(self):
-        for u in self.user_list:
-            self.user_means[u] = sum(self.trainset_user[u].values())/(len(self.trainset_user[u]) + 0.00000001)
-            self.user_degrees[u] = len(list(self.trainset_user[u].keys()))
-            self.user_probs[u] = len(self.trainset_user[u].values()) /len(self.interact_train)
-
-    def __computeItemMean(self):
-        for c in self.item_list:
-            self.item_means[c] = sum(self.trainset_item[c].values())/(len(self.trainset_item[c])+0.00000001)
-            self.item_degrees[c] = len(list(self.trainset_item[c].keys()))
-            self.item_probs[c] = len(self.trainset_item[c].values()) /len(self.interact_train)
+        self.global_mean = sum(self.user_means.values()) / len(self.user_means) if self.user_means else 0
 
     def __preprocess_features(self, remove_cols=['user', 'encoded']):
         user_feature_name_list = [col for col in self.user_feature.columns if col not in remove_cols]
