@@ -42,9 +42,9 @@ class Data(object):
         self.__compute_statistics()
 
         # create datasets
-        self.train_dataset = Train_dataset(self.interact_train, self.item_num, self.trainset_user)
-        self.test_dataset = Test_dataset(self.testset_user, self.item_num)
-        self.test_dataset_one_plus_all = Test_dataset_one_plus_all(self.interact_test)
+        self.train_dataset = TrainDataset(self.interact_train, self.item_num, self.trainset_user)
+        self.test_dataset = TestDataset(self.testset_user, self.item_num)
+        self.test_dataset_one_plus_all = TestDatasetOnePlusAll(self.interact_test)
 
         # create mask for user's historical interactions
         user_historical_mask = np.ones((self.user_num, self.item_num))
@@ -172,9 +172,9 @@ class Data(object):
         self.item_feature_list.append({'feature_name':'encoded', 'feature_dim':self.item_num})
         self.item_feature_matrix = torch.from_numpy(self.item_feature[[f['feature_name'] for f in self.item_feature_list]].values)
 
-class Train_dataset(Dataset):
+class TrainDataset(Dataset):
     def __init__(self, interact_train, item_num, trainset_user):
-        super(Train_dataset, self).__init__()
+        super().__init__()
         self.interact_train = interact_train
         self.item_list = list(range(item_num))
         self.trainset_user = trainset_user
@@ -184,19 +184,18 @@ class Train_dataset(Dataset):
 
     def __getitem__(self, idx):
         entry = self.interact_train.iloc[idx]
-
         user = entry.userid
+        # positive item: the user has interacted with
         pos_item = entry.itemid
-        neg_item = choice(self.item_list)
-        while neg_item in self.trainset_user[user]:
-            neg_item = choice(self.item_list)
+        # negative item: the user has not interacted with
+        neg_items = [item for item in self.item_list if item not in self.trainset_user[user]]
+        neg_item = choice(neg_items)
 
         return user, pos_item, neg_item
 
-class Test_dataset_one_plus_all(Dataset):
+class TestDatasetOnePlusAll(Dataset):
     def __init__(self, interact_test):
-        super(Test_dataset_one_plus_all, self).__init__()
-
+        super().__init__()
         self.interact_test = interact_test
 
     def __len__(self):
@@ -204,16 +203,13 @@ class Test_dataset_one_plus_all(Dataset):
 
     def __getitem__(self, idx):
         entry = self.interact_test.iloc[idx]
-
         user = entry.userid
         item = entry.itemid
-
         return user, item
 
-class Test_dataset(Dataset):
+class TestDataset(Dataset):
     def __init__(self, testset_user, item_num):
-        super(Test_dataset, self).__init__()
-
+        super().__init__()
         self.testset_user = testset_user
         self.user_list = list(testset_user.keys())
         self.item_num = item_num
