@@ -1,15 +1,11 @@
 import torch
 from torch.utils.data.dataset import Dataset
-
 from collections import defaultdict
 import numpy as np
 import pandas as pd
 from random import choice
-
 import os
-
 from sklearn.preprocessing import LabelEncoder
-
 
 class Data(object):
     def __init__(self, opt):
@@ -114,8 +110,10 @@ class Data(object):
 
         self.global_mean = sum(self.user_means.values()) / len(self.user_means) if self.user_means else 0
 
-    def __preprocess_features(self, remove_cols=['user', 'encoded']):
+    def __preprocess_features(self, remove_cols=['user', 'item', 'encoded']):
+        # process user feature
         user_feature_name_list = [col for col in self.user_feature.columns if col not in remove_cols]
+        print(user_feature_name_list)
         
         # user_feature is a dataframe with columns: user, feature1, feature2, ...,
         self.user_feature_list = []
@@ -130,55 +128,47 @@ class Data(object):
         # (one hot encoding)
         self.user_feature_matrix = torch.tensor(self.user_feature[[f['feature_name'] for f in self.user_feature_list]].values)
 
-        self.dense_f_list_transforms = {}
-
-        item_feature_name_list = list(self.item_feature.columns)
+        
+        # process item feature
+        item_feature_name_list = [col for col in self.item_feature.columns if col not in remove_cols]
         print(item_feature_name_list)
-        item_feature_name_list.remove("item")
-        item_feature_name_list.remove("encoded")
 
         self.item_feature_list = []
+        self.dense_f_list_transforms = {}
         for f in item_feature_name_list:
-            if type(self.item_feature[f][0]) == list:
+            if isinstance(self.item_feature[f][0], list):
                 dense_f_list = self.item_feature[f].values.tolist()
                 vocab = []
                 for i in dense_f_list:
-                    try:
+                    if i:  # Check if the feature is not empty
                         vocab += i
-                    except:
+                    else:
                         print('empty feature')
-                        continue
-                vocab = list(set(vocab))
-                vocab_len = len(vocab)
+
+                vocab = list(set(vocab)) # remove duplicates
+                vocab_dict = {word: idx for idx, word in enumerate(vocab)}  # Create a dictionary for faster lookup
 
                 dense_f_transform = []
                 for t in dense_f_list:
-                    dense_f_idx = torch.zeros(1, vocab_len).long()
-                    try:
+                    dense_f_idx = torch.zeros(1, len(vocab)).long()
+                    if t:  # Check if the feature is not empty
                         for w in t:
-                            idx = vocab.index(w)
-                            dense_f_idx[0, idx] = 1
+                            idx = vocab_dict.get(w)  # Get the index from the dictionary
+                            if idx is not None:  # Check if the word is in the vocabulary
+                                dense_f_idx[0, idx] = 1
                         dense_f_transform.append(dense_f_idx)
-                    except:
-                        continue
 
                 self.dense_f_list_transforms[f] = torch.cat(dense_f_transform, dim=0)
-
             else:
                 encoder = LabelEncoder()
-                encoder.fit(self.item_feature[f].fillna('NA'))
-                self.item_feature[f] = encoder.transform(self.item_feature[f])
+                self.item_feature[f] = encoder.fit_transform(self.item_feature[f])
                 feature_dim = len(encoder.classes_)
+                # feature_dim is the number of unique values in the feature 
                 self.item_feature_list.append({'feature_name':f, 'feature_dim':feature_dim})
 
-
+        # (one hot encoding)
         self.item_feature_list.append({'feature_name':'encoded', 'feature_dim':self.item_num})
-
-
         self.item_feature_matrix = torch.from_numpy(self.item_feature[[f['feature_name'] for f in self.item_feature_list]].values)
-
-
-
 
 class Train_dataset(Dataset):
     def __init__(self, interact_train, item_num, trainset_user):
