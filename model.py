@@ -278,7 +278,7 @@ class Model(nn.Module):
         enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
         for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.joint_adjaceny_matrix_normal_spatial, cur_embedding)
+            cur_embedding_ori = torch.mm(self.joint_adjaceny_matrix_normal_spatial.to_dense(), cur_embedding)
             cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
             cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
             all_embeddings.append(cur_embedding)
