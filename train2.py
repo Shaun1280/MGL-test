@@ -14,51 +14,6 @@ import metric
 import argparse
 import os
 
-
-def get_config():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_name", type=str, default='book_crossing')
-    parser.add_argument("--social_data", type=bool, default=False)
-    # test_set/cv/split
-    parser.add_argument("--load_mode", type=str, default='test_set')
-
-    parser.add_argument("--implcit_bottom", type=int, default=None)
-    parser.add_argument("--cross_validate", type=int, default=None)
-    parser.add_argument("--split", type=float, default=None)
-    parser.add_argument("--user_fre_threshold", type=int, default=None)
-    parser.add_argument("--item_fre_threshold", type=int, default=None)
-
-    parser.add_argument("--loadFilename", type=str, default=None)
-
-    parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--epoch", type=int, default=300)
-
-    parser.add_argument("--embedding_size", type=int, default=8)
-    parser.add_argument("--id_embedding_size", type=int, default=64)
-    parser.add_argument("--dense_embedding_dim", type=int, default=16)
-
-    parser.add_argument("--L", type=int, default=3)
-    
-    parser.add_argument("--link_topk", type=int, default=10)
-
-    parser.add_argument("--reg_lambda", type=float, default=0.02)
-    parser.add_argument("--top_rate", type=float, default=0.1)
-    parser.add_argument("--convergence", type=float, default=40)
-    parser.add_argument("--seperate_rate", type=float, default=0.2)
-    parser.add_argument("--local_lr", type=float, default=0.01)
-    parser.add_argument("--beta", type=float, default=0.1)
-
-
-    parser.add_argument("--lr", type=float, default=0.001)
-    parser.add_argument("--weight_decay", type=float, default=0.01)
-
-
-    parser.add_argument("--K_list", type=int, nargs='+', default=[10, 20, 50])
-
-    opt = parser.parse_args()
-    
-    return opt
-
 def my_collate_train(batch):
     user_id = [item[0] for item in batch]
     pos_item = [item[1] for item in batch]
@@ -184,15 +139,15 @@ def one_train(Data, opt):
                 pbar.update(1)
 
 
-    # torch.save({
-    #     'sd': model.state_dict(),
-    #     'opt':opt,
-    # }, os.path.join(os.path.dirname(__file__), 'model', 'model.tar'))
+    torch.save({
+        'sd': model.state_dict(),
+        'opt':opt,
+    }, os.path.join(os.path.dirname(__file__), 'model', opt.output))
 
     # test
-    best_checkpoint = torch.load(os.path.join(os.path.dirname(__file__), 'model', 'model.tar'))
+    best_checkpoint = torch.load(os.path.join(os.path.dirname(__file__), 'model', opt.model))
 
-    # remove the historical interaction in the prediction
+    opt = best_checkpoint['opt']
     model = Model(Data, opt, device)
     model.load_state_dict(best_checkpoint['sd'])
     model = model.to(device)
@@ -252,6 +207,48 @@ def one_train(Data, opt):
         print("body_RECALL@{}: {}".format(K, np.mean(body_RECALL[K])))
     
 if __name__ == '__main__':
-    opt = get_config()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--dataset_name", type=str, default='book_crossing')
+    parser.add_argument("--social_data", type=bool, default=False)
+    # test_set/cv/split
+    parser.add_argument("--load_mode", type=str, default='test_set')
+
+    parser.add_argument("--implcit_bottom", type=int, default=None)
+    parser.add_argument("--cross_validate", type=int, default=None)
+    parser.add_argument("--split", type=float, default=None)
+    parser.add_argument("--user_fre_threshold", type=int, default=None)
+    parser.add_argument("--item_fre_threshold", type=int, default=None)
+
+    parser.add_argument("--loadFilename", type=str, default=None)
+
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--epoch", type=int, default=300)
+
+    parser.add_argument("--embedding_size", type=int, default=8)
+    parser.add_argument("--id_embedding_size", type=int, default=64)
+    parser.add_argument("--dense_embedding_dim", type=int, default=16)
+
+    parser.add_argument("--L", type=int, default=3)
+    
+    parser.add_argument("--link_topk", type=int, default=10)
+
+    parser.add_argument("--reg_lambda", type=float, default=0.02)
+    parser.add_argument("--top_rate", type=float, default=0.1)
+    parser.add_argument("--convergence", type=float, default=40)
+    parser.add_argument("--seperate_rate", type=float, default=0.2)
+    parser.add_argument("--local_lr", type=float, default=0.01)
+    parser.add_argument("--beta", type=float, default=0.1)
+
+    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--weight_decay", type=float, default=0.01)
+
+    parser.add_argument("--K_list", type=int, nargs='+', default=[10, 20, 50])
+
+    parser.add_argument("--output", type=str, default="model.tar")
+    parser.add_argument("--model", type=str, default="model.tar")
+
+    opt = parser.parse_args()
+
     Data = load_data.Data(opt)
     one_train(Data, opt)
