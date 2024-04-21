@@ -46,13 +46,15 @@ class Data(object):
         self.test_dataset = Test_dataset(self.testset_user, self.item_num)
         self.test_dataset_one_plus_all = Test_dataset_one_plus_all(self.interact_test)
 
-        # create masks
+        # create mask for user's historical interactions
         user_historical_mask = np.ones((self.user_num, self.item_num))
-        for uuu in self.trainset_user.keys():
-            item_list = list(self.trainset_user[uuu].keys())
-            if len(item_list) != 0:
-                user_historical_mask[uuu, item_list] = 0
-        
+        # Iterate over users and items
+        for user, items in self.trainset_user.items():
+            if items:
+                # Convert keys to list and update mask
+                item_list = list(items.keys())
+                user_historical_mask[user, item_list] = 0
+        # Convert numpy array to PyTorch tensor
         self.user_historical_mask = torch.from_numpy(user_historical_mask)
 
     # load processed data
@@ -191,9 +193,6 @@ class Train_dataset(Dataset):
 
         return user, pos_item, neg_item
 
-    
-
-
 class Test_dataset_one_plus_all(Dataset):
     def __init__(self, interact_test):
         super(Test_dataset_one_plus_all, self).__init__()
@@ -210,7 +209,6 @@ class Test_dataset_one_plus_all(Dataset):
         item = entry.itemid
 
         return user, item
-
 
 class Test_dataset(Dataset):
     def __init__(self, testset_user, item_num):
