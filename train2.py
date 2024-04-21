@@ -54,7 +54,7 @@ def one_train(Data, opt):
 
     interact_matrix = torch.sparse_coo_tensor(index, value, (Data.user_num, Data.item_num)).to(device)
 
-    i2i = torch.sparse.mm(interact_matrix.t(), interact_matrix.to_dense())
+    i2i = torch.sparse.mm(interact_matrix.t().to_dense(), interact_matrix.to_dense())
     i2i = i2i.to_sparse()
 
     def sparse_where(A):
