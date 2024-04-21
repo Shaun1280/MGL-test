@@ -219,6 +219,8 @@ class TestDataset(Dataset):
 
     def __getitem__(self, idx):
         user = self.user_list[idx]
+        # get the items the user has interacted with
         item_list = torch.tensor(list(self.testset_user[user].keys()))
+        # create a tensor with 1s at the indices of the items the user has interacted with
         tensor = torch.zeros(self.item_num).scatter(0, item_list, 1)
         return user, tensor
