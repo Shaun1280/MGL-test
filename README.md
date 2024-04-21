@@ -66,7 +66,7 @@ old:
 python train.py
 
 new:
-python train2.py --dataset bx --epoch 5
+python train2.py --dataset bx --epoch 100
 ```
 
 > Output: the file "model/model.tar"
@@ -74,6 +74,8 @@ python train2.py --dataset bx --epoch 5
 ## Prediction
 Expected model/model.tar prediction result (5 epochs):
 ```
+python train2.py --dataset bx --epoch 0 --model model-bx-5.tar
+
 Namespace(K_list=[10, 20, 50], L=3, batch_size=128, beta=0.1, convergence=40, cross_validate=None, dataset_name='bx', dense_embedding_dim=16, embedding_size=8, epoch=0, id_embedding_size=64, implcit_bottom=None, item_fre_threshold=None, link_topk=10, loadFilename=None, load_mode='test_set', local_lr=0.01, lr=0.001, reg_lambda=0.02, seperate_rate=0.2, social_data=False, split=None, top_rate=0.1, user_fre_threshold=None, weight_decay=0.01)
 Meta_final_2
 NDCG@10: 0.006996426316734284
