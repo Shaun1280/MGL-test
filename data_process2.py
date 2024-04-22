@@ -5,7 +5,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 
 
-def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
+def data_process(dataset_name, split_rate=0.8, user_freq_threshold=None,
                  item_freq_threshold=None, shuffle_split=True, with_time=True, leave_out=None):
     save_dir = os.path.join(os.path.dirname(__file__), "dataset", dataset_name)
 
@@ -87,23 +87,25 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
     item_feature.to_pickle(os.path.join(save_dir, 'encoded_item_feature.pkl'))
     print("encoded item feature saved...")
 
-    # Split the data into train and test sets
     if leave_out == None:
-        interact_train, interact_test = \
-            train_test_split(interact, train_size=split_rate, random_state=5, shuffle=shuffle_split)
+        interact_train, interact_test = train_test_split(interact, train_size=split_rate, random_state=5, shuffle=shuffle_split)
+        interact_val, interact_test = train_test_split(interact_test, test_size=0.5, random_state=5, shuffle=shuffle_split)
     else:
         # Leave out the last 'leave_out' interactions for each user
         interact_train = []
+        interact_val = []
         interact_test = []
 
         for _, group in interact.groupby('userid'):
-            if len(group) > leave_out:
-                interact_train.append(group[:-leave_out])
+            if len(group) > leave_out * 2:
+                interact_train.append(group[:-leave_out * 2])
+                interact_val.append(group[-leave_out * 2:-leave_out])
                 interact_test.append(group[-leave_out:])
             else:
                 interact_train.append(group)
 
         interact_train = pd.concat(interact_train, ignore_index=True)
+        interact_val = pd.concat(interact_val, ignore_index=True)
         interact_test = pd.concat(interact_test, ignore_index=True)
 
     # get all user keeps
@@ -119,19 +121,27 @@ def data_process(dataset_name, split_rate=0.9, user_freq_threshold=None,
     # Filter out users and items that do not appear in the training set
     history_users = set(interact_train['userid'])
     history_items = set(interact_train['itemid'])
+
+    # process the validation set
+    user_keeps = get_all_user_keeps(interact_val, history_users)
+    item_keeps = get_all_item_keeps(interact_val, history_items)
+    interact_val = interact_val[user_keeps & item_keeps]
+
+    # process the test set
     user_keeps = get_all_user_keeps(interact_test, history_users)
     item_keeps = get_all_item_keeps(interact_test, history_items)
     interact_test = interact_test[user_keeps & item_keeps]
 
     # Save the train and test sets
     interact_train.to_pickle(os.path.join(save_dir, "interact_train.pkl"))
+    interact_val.to_pickle(os.path.join(save_dir, "interact_val.pkl"))
     interact_test.to_pickle(os.path.join(save_dir, "interact_test.pkl"))
-    print("train and test sets saved...")
+    print("train, val and test sets saved...")
 
 if __name__ == '__main__':
     data_process('bx',
-                 user_freq_threshold=6,
-                 item_freq_threshold=6,
+                 user_freq_threshold=8,
+                 item_freq_threshold=4,
                  with_time=True,
                  leave_out=None
                 );
