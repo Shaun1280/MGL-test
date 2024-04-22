@@ -44,7 +44,6 @@ class Data(object):
         # create datasets
         self.train_dataset = TrainDataset(self.interact_train, self.item_num, self.trainset_user)
         self.test_dataset = TestDataset(self.testset_user, self.item_num)
-        self.test_dataset_one_plus_all = TestDatasetOnePlusAll(self.interact_test)
 
         # create mask for user's historical interactions
         user_historical_mask = np.ones((self.user_num, self.item_num))
@@ -192,20 +191,6 @@ class TrainDataset(Dataset):
         neg_item = choice(neg_items)
 
         return user, pos_item, neg_item
-
-class TestDatasetOnePlusAll(Dataset):
-    def __init__(self, interact_test):
-        super().__init__()
-        self.interact_test = interact_test
-
-    def __len__(self):
-        return len(self.interact_test)
-
-    def __getitem__(self, idx):
-        entry = self.interact_test.iloc[idx]
-        user = entry.userid
-        item = entry.itemid
-        return user, item
 
 class TestDataset(Dataset):
     def __init__(self, testset_user, item_num):
