@@ -27,6 +27,8 @@ class Data(object):
         # generate train and test set (maps)
         self.trainset_user = defaultdict(dict)
         self.trainset_item = defaultdict(dict)
+        self.valset_user = defaultdict(dict)
+        self.valset_item = defaultdict(dict)
         self.testset_user = defaultdict(dict)
         self.testset_item = defaultdict(dict)
         self.__generate_set()
@@ -43,6 +45,7 @@ class Data(object):
 
         # create datasets
         self.train_dataset = TrainDataset(self.interact_train, self.item_num, self.trainset_user)
+        self.val_dataset = TestDataset(self.valset_user, self.item_num)
         self.test_dataset = TestDataset(self.testset_user, self.item_num)
 
         # create mask for user's historical interactions
@@ -76,6 +79,7 @@ class Data(object):
             print("item_feature is not exist!!!!")
 
         self.interact_train = pd.read_pickle(os.path.join(save_dir, 'interact_train.pkl'))
+        self.interact_val = pd.read_pickle(os.path.join(save_dir, 'interact_val.pkl'))
         self.interact_test = pd.read_pickle(os.path.join(save_dir, 'interact_test.pkl'))
 
         self.item_encoder_map = pd.read_csv(os.path.join(save_dir, 'item_encoder_map.csv'))
@@ -85,6 +89,7 @@ class Data(object):
         # filter the data by bottom (e.g. implicit feedback = 0)
         if bottom is not None:
             self.interact_train = self.interact_train[self.interact_train['score'] > bottom]
+            self.interact_val = self.interact_val[self.interact_val['score'] > bottom]  
             self.interact_test = self.interact_test[self.interact_test['score'] > bottom]  
 
     # generate train and test set (maps)
@@ -95,6 +100,7 @@ class Data(object):
                 item_set[row.itemid][row.userid] = row.score
 
         process_interactions(self.interact_train, self.trainset_user, self.trainset_item)
+        process_interactions(self.interact_val, self.valset_user, self.valset_item)
         process_interactions(self.interact_test, self.testset_user, self.testset_item)
         
     def __compute_statistics(self):
