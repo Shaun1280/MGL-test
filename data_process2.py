@@ -79,6 +79,7 @@ def data_process(dataset_name, split_rate=0.8, user_freq_threshold=None,
     # save encoded item feature
     item_feature = pd.read_pickle(os.path.join(save_dir, 'item_feature.pkl'))
     item_feature['item'] = item_feature['item'].astype(str)
+    item_encoder_map['item'] = item_encoder_map['item'].astype(str)
     item_feature = pd.merge(
         item_encoder_map,
         item_feature,
