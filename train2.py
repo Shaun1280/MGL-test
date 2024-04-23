@@ -212,8 +212,11 @@ def one_train(Data, opt):
             if len(recalls) > 2 and recall20 < recalls[-1] and recall20 < recalls[-2] and recall20 < recalls[-3]:
                 print('early stop: recall@20 is not increasing for 3 epochs')
                 break
-
-            recalls.append(recall20)
+            
+            if len(recalls) == 0:
+                recalls.append(recall20)
+            else:
+                recalls.append(max(recalls[-1], recall20))
 
             torch.save({
                 'sd': model.state_dict(),
