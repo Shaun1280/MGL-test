@@ -22,7 +22,7 @@ def test(Data, opt):
     test_loader = DataLoader(
         test_dataset, shuffle=False, batch_size=opt.batch_size, collate_fn=None)
     
-    best_checkpoint = torch.load(os.path.join(os.path.dirname(__file__), 'model', opt.model))
+    best_checkpoint = torch.load(os.path.join(os.path.dirname(__file__), 'model', opt.model), map_location=device)
 
     opt = best_checkpoint['opt']
     model = Model(Data, opt, device)
