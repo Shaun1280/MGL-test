@@ -1,5 +1,6 @@
 import torch
 from torch import optim
+import torch.autograd
 from torch.utils.data import DataLoader
 
 import numpy as np
@@ -14,13 +15,79 @@ import metric
 import argparse
 import os
 
-def one_train(Data, opt):
-    print(opt)
-    print('Building dataloader >>>>>>>>>>>>>>>>>>>')
+def test(Data, opt):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     test_dataset = Data.test_dataset
     test_loader = DataLoader(
         test_dataset, shuffle=False, batch_size=opt.batch_size, collate_fn=None)
+    
+    best_checkpoint = torch.load(os.path.join(os.path.dirname(__file__), 'model', opt.model))
+
+    opt = best_checkpoint['opt']
+    model = Model(Data, opt, device)
+    model.load_state_dict(best_checkpoint['sd'])
+    model = model.to(device)
+
+    model.eval()
+    user_historical_mask = Data.user_historical_mask.to(device)
+
+    NDCG = defaultdict(list)
+    RECALL = defaultdict(list)
+    MRR = defaultdict(list)
+
+    head_NDCG = defaultdict(list)
+    head_RECALL = defaultdict(list)
+    tail_NDCG = defaultdict(list)
+    tail_RECALL = defaultdict(list)
+    body_NDCG = defaultdict(list)
+    body_RECALL = defaultdict(list)
+
+    with torch.no_grad():
+        with tqdm(total=len(test_loader), desc="predicting") as pbar:
+            for _, (user_id, pos_item) in enumerate(test_loader):
+                user_id = user_id.to(device)
+                # pos_item (uuu * item_num)
+                # uuu * item_num
+                score = model.predict(user_id)
+                score = torch.mul(user_historical_mask[user_id], score).cpu().detach().numpy()
+                ground_truth = pos_item.detach().numpy()
+
+                for K in opt.K_list:
+                    ndcg, recall, mrr = metric.ranking_meansure_testset(score, ground_truth, K, list(Data.testset_item.keys()))
+                    head_ndcg, head_recall, tail_ndcg, tail_recall, body_ndcg, body_recall = metric.ranking_meansure_degree_testset(score, ground_truth, K, Data.item_degrees, opt.seperate_rate, list(Data.testset_item.keys()))
+                    NDCG[K].append(ndcg)
+                    RECALL[K].append(recall)
+                    MRR[K].append(mrr)
+                
+                    head_NDCG[K].append(head_ndcg)
+                    head_RECALL[K].append(head_recall)
+                    tail_NDCG[K].append(tail_ndcg)
+                    tail_RECALL[K].append(tail_recall)
+                    body_NDCG[K].append(body_ndcg)
+                    body_RECALL[K].append(body_recall)
+
+                pbar.update(1)
+
+        print(opt)
+        print(model.name)
+        for K in opt.K_list:
+            print("NDCG@{}: {}".format(K, np.mean(NDCG[K])))
+            print("RECALL@{}: {}".format(K, np.mean(RECALL[K])))
+            print("MRR@{}: {}".format(K, np.mean(MRR[K])))
+            print('\r\r')
+            print("head_NDCG@{}: {}".format(K, np.mean(head_NDCG[K])))
+            print("head_RECALL@{}: {}".format(K, np.mean(head_RECALL[K])))
+            print('\r\r')
+            print("tail_NDCG@{}: {}".format(K, np.mean(tail_NDCG[K])))
+            print("tail_RECALL@{}: {}".format(K, np.mean(tail_RECALL[K])))
+            print('\r\r')
+            print("body_NDCG@{}: {}".format(K, np.mean(body_NDCG[K])))
+            print("body_RECALL@{}: {}".format(K, np.mean(body_RECALL[K])))
+
+def one_train(Data, opt):
+    print(opt)
+    print('Building dataloader >>>>>>>>>>>>>>>>>>>')
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -75,19 +142,18 @@ def one_train(Data, opt):
     start_epoch = 0
     # directory = directory_name_generate(model, opt, "no early stop")
     model = model.to(device)
-
     support_loader = DataLoader(i2i_pair, shuffle=True, batch_size=opt.batch_size, collate_fn=None)
 
+    recalls = []
     for epoch in range(start_epoch, opt.epoch):
         model.train()
 
         train_loader = DataLoader(Data.train_dataset, shuffle=True, batch_size=opt.batch_size, collate_fn=None)
-
         support_iter = iter(support_loader)
 
+        train_loss = 0
         with tqdm(total=len(train_loader), desc="epoch"+str(epoch)) as pbar:
             for index, (user_id, pos_item, neg_item) in enumerate(train_loader):
-                
                 user_id = user_id.to(device)
                 pos_item = pos_item.to(device)
                 neg_item = neg_item.to(device)
@@ -109,78 +175,51 @@ def one_train(Data, opt):
 
                 loss = query_loss + opt.beta * support_loss
 
+                train_loss += loss.item()
+
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
                 pbar.update(1)
 
+        print('epoch: ', epoch, 'loss: ', train_loss)
 
-    torch.save({
-        'sd': model.state_dict(),
-        'opt':opt,
-    }, os.path.join(os.path.dirname(__file__), 'model', opt.output))
+        model.eval()
+        with torch.no_grad():
+            val_loader = DataLoader(Data.val_dataset, shuffle=False, batch_size=opt.batch_size, collate_fn=None)
+            user_historical_mask = Data.user_historical_mask.to(device)
+            RECALL20 = []
 
-    # test
-    best_checkpoint = torch.load(os.path.join(os.path.dirname(__file__), 'model', opt.model))
+            with tqdm(total=len(val_loader), desc="validating") as pbar:
+                for _, (user_id, pos_item) in enumerate(val_loader):
+                    user_id = user_id.to(device)
+                    # pos_item (uuu * item_num)
+                    # uuu * item_num
+                    score = model.predict(user_id)
+                    score = torch.mul(user_historical_mask[user_id], score).cpu().detach().numpy()
+                    ground_truth = pos_item.detach().numpy()
 
-    opt = best_checkpoint['opt']
-    model = Model(Data, opt, device)
-    model.load_state_dict(best_checkpoint['sd'])
-    model = model.to(device)
-    model.eval()
-    user_historical_mask = Data.user_historical_mask.to(device)
+                    for K in opt.K_list:
+                        _, recall, _ = metric.ranking_meansure_testset(score, ground_truth, K, list(Data.valset_item.keys()))
+                        RECALL20.append(recall) # 'collections.defaultdict' object has no attribute 'append'
 
-    NDCG = defaultdict(list)
-    RECALL = defaultdict(list)
-    MRR = defaultdict(list)
+                    pbar.update(1)
 
-    head_NDCG = defaultdict(list)
-    head_RECALL = defaultdict(list)
-    tail_NDCG = defaultdict(list)
-    tail_RECALL = defaultdict(list)
-    body_NDCG = defaultdict(list)
-    body_RECALL = defaultdict(list)
+            recall20 = np.mean(RECALL20)
+            print('val recall 20: ', recall20)
 
-    with tqdm(total=len(test_loader), desc="predicting") as pbar:
-        for i, (user_id, pos_item) in enumerate(test_loader):
-            user_id = user_id.to(device)
-            # pos_item (uuu * item_num)
-            # uuu * item_num
-            score = model.predict(user_id)
-            score = torch.mul(user_historical_mask[user_id], score).cpu().detach().numpy()
-            ground_truth = pos_item.detach().numpy()
+            # stop when recall@20 is not increasing for 3 epochs
+            if len(recalls) > 2 and recall20 < recalls[-1] and recall20 < recalls[-2] and recall20 < recalls[-3]:
+                print('early stop: recall@20 is not increasing for 3 epochs')
+                break
 
-            for K in opt.K_list:
-                ndcg, recall, mrr = metric.ranking_meansure_testset(score, ground_truth, K, list(Data.testset_item.keys()))
-                head_ndcg, head_recall, tail_ndcg, tail_recall, body_ndcg, body_recall = metric.ranking_meansure_degree_testset(score, ground_truth, K, Data.item_degrees, opt.seperate_rate, list(Data.testset_item.keys()))
-                NDCG[K].append(ndcg)
-                RECALL[K].append(recall)
-                MRR[K].append(mrr)
-            
-                head_NDCG[K].append(head_ndcg)
-                head_RECALL[K].append(head_recall)
-                tail_NDCG[K].append(tail_ndcg)
-                tail_RECALL[K].append(tail_recall)
-                body_NDCG[K].append(body_ndcg)
-                body_RECALL[K].append(body_recall)
+            recalls.append(recall20)
 
-            pbar.update(1)
-
-    print(opt)
-    print(model.name)
-    for K in opt.K_list:
-        print("NDCG@{}: {}".format(K, np.mean(NDCG[K])))
-        print("RECALL@{}: {}".format(K, np.mean(RECALL[K])))
-        print("MRR@{}: {}".format(K, np.mean(MRR[K])))
-        print('\r\r')
-        print("head_NDCG@{}: {}".format(K, np.mean(head_NDCG[K])))
-        print("head_RECALL@{}: {}".format(K, np.mean(head_RECALL[K])))
-        print('\r\r')
-        print("tail_NDCG@{}: {}".format(K, np.mean(tail_NDCG[K])))
-        print("tail_RECALL@{}: {}".format(K, np.mean(tail_RECALL[K])))
-        print('\r\r')
-        print("body_NDCG@{}: {}".format(K, np.mean(body_NDCG[K])))
-        print("body_RECALL@{}: {}".format(K, np.mean(body_RECALL[K])))
+            torch.save({
+                'sd': model.state_dict(),
+                'opt':opt,
+            }, os.path.join(os.path.dirname(__file__), 'model', opt.output))
+    
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -228,3 +267,4 @@ if __name__ == '__main__':
 
     Data = load_data.Data(opt)
     one_train(Data, opt)
+    test(Data, opt)
