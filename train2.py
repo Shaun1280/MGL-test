@@ -14,30 +14,6 @@ import metric
 import argparse
 import os
 
-def my_collate_train(batch):
-    user_id = [item[0] for item in batch]
-    pos_item = [item[1] for item in batch]
-    neg_item = [item[2] for item in batch]
-
-    user_id = torch.LongTensor(user_id)
-    pos_item = torch.LongTensor(pos_item)
-    neg_item = torch.LongTensor(neg_item)
-
-    return [user_id, pos_item, neg_item]
-
-
-def collate_test_i2i(batch):
-    item1 = [item[0] for item in batch]
-    item2 = [item[1] for item in batch]
-
-    item1 = torch.LongTensor(item1)
-    item2 = torch.LongTensor(item2)
-
-
-    return [item1, item2]
-
-
-
 def one_train(Data, opt):
     print(opt)
     print('Building dataloader >>>>>>>>>>>>>>>>>>>')
