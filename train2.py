@@ -34,38 +34,31 @@ def test(Data, opt):
 
     NDCG = defaultdict(list)
     RECALL = defaultdict(list)
-    MRR = defaultdict(list)
 
     head_NDCG = defaultdict(list)
     head_RECALL = defaultdict(list)
     tail_NDCG = defaultdict(list)
     tail_RECALL = defaultdict(list)
-    body_NDCG = defaultdict(list)
-    body_RECALL = defaultdict(list)
 
     with torch.no_grad():
         with tqdm(total=len(test_loader), desc="predicting") as pbar:
             for _, (user_id, pos_item) in enumerate(test_loader):
                 user_id = user_id.to(device)
-                # pos_item (uuu * item_num)
-                # uuu * item_num
+
                 score = model.predict(user_id)
                 score = torch.mul(user_historical_mask[user_id], score).cpu().detach().numpy()
                 ground_truth = pos_item.detach().numpy()
 
                 for K in opt.K_list:
-                    ndcg, recall, mrr = metric.ranking_meansure_testset(score, ground_truth, K, list(Data.testset_item.keys()))
-                    head_ndcg, head_recall, tail_ndcg, tail_recall, body_ndcg, body_recall = metric.ranking_meansure_degree_testset(score, ground_truth, K, Data.item_degrees, opt.seperate_rate, list(Data.testset_item.keys()))
-                    NDCG[K].append(ndcg)
-                    RECALL[K].append(recall)
-                    MRR[K].append(mrr)
+                    metrics = metric.ranking_measure_testset(score, ground_truth, K, list(Data.testset_item.keys()))
+                    metrics_head_tail = metric.ranking_measure_degree_testset(score, ground_truth, K, Data.item_degrees, opt.seperate_rate, list(Data.testset_item.keys()))
+                    NDCG[K].append(metrics['ndcg'])
+                    RECALL[K].append(metrics['recall'])
                 
-                    head_NDCG[K].append(head_ndcg)
-                    head_RECALL[K].append(head_recall)
-                    tail_NDCG[K].append(tail_ndcg)
-                    tail_RECALL[K].append(tail_recall)
-                    body_NDCG[K].append(body_ndcg)
-                    body_RECALL[K].append(body_recall)
+                    head_NDCG[K].append(metrics_head_tail['head']['ndcg'])
+                    head_RECALL[K].append(metrics_head_tail['head']['recall'])
+                    tail_NDCG[K].append(metrics_head_tail['tail']['ndcg'])
+                    tail_RECALL[K].append(metrics_head_tail['tail']['recall'])
 
                 pbar.update(1)
 
@@ -74,7 +67,6 @@ def test(Data, opt):
         for K in opt.K_list:
             print("NDCG@{}: {}".format(K, np.mean(NDCG[K])))
             print("RECALL@{}: {}".format(K, np.mean(RECALL[K])))
-            print("MRR@{}: {}".format(K, np.mean(MRR[K])))
             print('\r\r')
             print("head_NDCG@{}: {}".format(K, np.mean(head_NDCG[K])))
             print("head_RECALL@{}: {}".format(K, np.mean(head_RECALL[K])))
@@ -82,8 +74,6 @@ def test(Data, opt):
             print("tail_NDCG@{}: {}".format(K, np.mean(tail_NDCG[K])))
             print("tail_RECALL@{}: {}".format(K, np.mean(tail_RECALL[K])))
             print('\r\r')
-            print("body_NDCG@{}: {}".format(K, np.mean(body_NDCG[K])))
-            print("body_RECALL@{}: {}".format(K, np.mean(body_RECALL[K])))
 
 def one_train(Data, opt):
     print(opt)
@@ -200,8 +190,8 @@ def one_train(Data, opt):
                     ground_truth = pos_item.detach().numpy()
 
                     for K in opt.K_list:
-                        _, recall, _ = metric.ranking_meansure_testset(score, ground_truth, K, list(Data.valset_item.keys()))
-                        RECALL20.append(recall) # 'collections.defaultdict' object has no attribute 'append'
+                        metrics = metric.ranking_measure_testset(score, ground_truth, K, list(Data.valset_item.keys()))
+                        RECALL20.append(metrics['recall'])
 
                     pbar.update(1)
 

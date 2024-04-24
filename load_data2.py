@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from random import choice
 import os
+import re
 from sklearn.preprocessing import LabelEncoder
 
 class Data(object):
@@ -143,8 +144,8 @@ class Data(object):
         self.item_feature_list = []
         self.dense_f_list_transforms = {}
         for f in item_feature_name_list:
-            if isinstance(self.item_feature[f][0], list):
-                dense_f_list = self.item_feature[f].values.tolist()
+            if f == 'title':
+                dense_f_list = self.item_feature[f].apply(lambda x: [i for i in re.split(' |\,|\)|\(', x) if i]).values.tolist()
                 vocab = []
                 for i in dense_f_list:
                     if i:  # Check if the feature is not empty
