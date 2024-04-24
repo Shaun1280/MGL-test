@@ -142,9 +142,9 @@ def data_process(dataset_name, split_rate=0.8, user_freq_threshold=None,
     print("train, val and test sets saved...")
 
 if __name__ == '__main__':
-    data_process('ml',
-                 user_freq_threshold=None,
-                 item_freq_threshold=None,
+    data_process('bx',
+                 user_freq_threshold=6,
+                 item_freq_threshold=6,
                  with_time=True,
                  leave_out=1
                 );
