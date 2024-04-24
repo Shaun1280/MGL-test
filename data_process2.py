@@ -99,6 +99,8 @@ def data_process(dataset_name, split_rate=0.8, user_freq_threshold=None,
 
         for _, group in interact.groupby('userid'):
             if len(group) > leave_out * 2:
+                # for each user, the most recent item is for testing
+                # the second most recent interacted item is for validation
                 interact_train.append(group[:-leave_out * 2])
                 interact_val.append(group[-leave_out * 2:-leave_out])
                 interact_test.append(group[-leave_out:])
@@ -140,11 +142,11 @@ def data_process(dataset_name, split_rate=0.8, user_freq_threshold=None,
     print("train, val and test sets saved...")
 
 if __name__ == '__main__':
-    data_process('bx',
-                 user_freq_threshold=6,
-                 item_freq_threshold=6,
+    data_process('ml',
+                 user_freq_threshold=None,
+                 item_freq_threshold=None,
                  with_time=True,
-                 leave_out=None
+                 leave_out=1
                 );
 
 
