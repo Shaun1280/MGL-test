@@ -97,7 +97,7 @@ def one_train(Data, opt):
     i2i = torch.sparse.mm(interact_matrix.t().to_dense(), interact_matrix.to_dense())
     i2i = i2i.to_sparse()
 
-    def sparse_where(A):
+    def sparse_min(A):
         A = A.coalesce()
         A_values = A.values()
         A_indices = A.indices()
@@ -105,9 +105,9 @@ def one_train(Data, opt):
         return torch.sparse_coo_tensor(A_indices, A_values, A.shape).to(A.device)
 
     # S'
-    i2i = sparse_where(i2i)
+    i2i = sparse_min(i2i)
 
-    def get_0_1_array(item_num, rate=0.2):
+    def get_mask(item_num, rate=0.2):
         zeros_num = int(item_num * rate)
         new_array = np.ones((item_num, item_num))
         for row in new_array:
@@ -117,7 +117,7 @@ def one_train(Data, opt):
         return re_array
 
     # M
-    mask = get_0_1_array(Data.item_num)
+    mask = get_mask(Data.item_num)
     
     # inplace operation
     # S'_mask = S' .* M .* M^T
