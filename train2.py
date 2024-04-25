@@ -82,11 +82,18 @@ def one_train(Data, opt):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     print(device)
+
+    # [...userindex, ...itemindex]. 
+    # Can be considered as zip(userindex, itemindex) for all interactions.
     index = [Data.interact_train['userid'].tolist(), Data.interact_train['itemid'].tolist()]
     value = [1.0] * len(Data.interact_train)
 
+    # R, which is of shape (user_num, item_num).
+    # Each row is a user's interaction with items.
+    # Stored in sparse tensor.
     interact_matrix = torch.sparse_coo_tensor(index, value, (Data.user_num, Data.item_num)).to(device)
 
+    # R^T * R
     i2i = torch.sparse.mm(interact_matrix.t().to_dense(), interact_matrix.to_dense())
     i2i = i2i.to_sparse()
 
@@ -97,7 +104,7 @@ def one_train(Data, opt):
         A_values = torch.where(A_values > 1, A_values.new_ones(A_values.shape), A_values)
         return torch.sparse_coo_tensor(A_indices, A_values, A.shape).to(A.device)
 
-    
+    # S'
     i2i = sparse_where(i2i)
 
     def get_0_1_array(item_num, rate=0.2):
@@ -109,15 +116,18 @@ def one_train(Data, opt):
         re_array = torch.from_numpy(new_array).to_sparse().to(device)
         return re_array
 
-
+    # M
     mask = get_0_1_array(Data.item_num)
+    
     # inplace operation
+    # S'_mask = S' .* M .* M^T
     i2i.mul_(mask).mul_(mask.t())
 
     i2i = i2i.coalesce()
 
     item1 = i2i.indices()[0].tolist()
     item2 = i2i.indices()[1].tolist()
+    # each item corresponds to S'_mask_{i, j}
     i2i_pair = list(zip(item1, item2))
 
 
