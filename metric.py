@@ -25,11 +25,10 @@ def ranking_measure_degree_testset(pred_scores, ground_truth, k, item_degrees, s
     # Calculate the lengths
     total_length = len(item_list_sorted)
     head_length = int(total_length * separate_rate)
-    tail_length = int(total_length * separate_rate)
 
     # Get the items for head, tail, and body
     head_item = list(set(item_list_sorted[-head_length:]).intersection(set(test_item)))
-    tail_item = list(set(item_list_sorted[:tail_length]).intersection(set(test_item)))
+    tail_item = list(set(item_list_sorted[:-head_length]).intersection(set(test_item)))
 
     # Initialize dictionary to store the metrics
     metrics_dict = {'head': head_item, 'tail': tail_item}
