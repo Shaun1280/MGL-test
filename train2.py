@@ -251,7 +251,7 @@ if __name__ == '__main__':
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--weight_decay", type=float, default=0.01)
 
-    parser.add_argument("--K_list", type=int, nargs='+', default=[10, 20, 50])
+    parser.add_argument("--K_list", type=int, nargs='+', default=[10, 20])
 
     parser.add_argument("--output", type=str, default="model.tar")
     parser.add_argument("--model", type=str, default="model.tar")
