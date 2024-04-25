@@ -127,7 +127,7 @@ def one_train(Data, opt):
 
     item1 = i2i.indices()[0].tolist()
     item2 = i2i.indices()[1].tolist()
-    # each item corresponds to S'_mask_{i, j}
+    # we retrieve (i, j) where S'_mask_{i, j} = 1
     i2i_pair = list(zip(item1, item2))
 
 
@@ -162,17 +162,22 @@ def one_train(Data, opt):
                 item1 = item1.to(device)
                 item2 = item2.to(device)
 
+                # F = L_GL + lambda * L_PCL. Refer to equation (15)
                 support_loss = model.i2i(item1, item2) + opt.reg_lambda * model.reg(item1)
 
+                # theta
                 weight_for_local_update = list(model.generator.encoder.state_dict().values())
 
+                # F'. Refer to equation (17)
                 grad = torch.autograd.grad(support_loss, model.generator.encoder.parameters(), create_graph=True, allow_unused=True)
+                
                 fast_weights = []
                 for i, weight in enumerate(weight_for_local_update):
                     fast_weights.append(weight - opt.local_lr * grad[i])
-
+                # J
                 query_loss = model.q_forward(user_id, pos_item, neg_item, fast_weights)
 
+                # equation (17)
                 loss = query_loss + opt.beta * support_loss
 
                 train_loss += loss.item()
