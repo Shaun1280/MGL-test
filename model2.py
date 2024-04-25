@@ -84,39 +84,35 @@ class EmbeddingGenerator(nn.Module):
     
 class Model(nn.Module):
     def __init__(self, Data, opt, device):
-        super(Model, self).__init__()
+        super().__init__()
 
         self.name = "MGL Reimplementation"
 
         self.interact_train = Data.interact_train
 
         self.user_num = Data.user_num
+        self.user_degrees = Data.user_degrees 
+        self.user_id_Embeddings = nn.Embedding(self.user_num, opt.id_embedding_size)
+
         self.item_num = Data.item_num
+        self.item_degrees = Data.item_degrees
+        self.item_id_Embeddings = nn.Embedding(self.item_num, opt.id_embedding_size)
         self.item_feature_list = Data.item_feature_list
         self.item_feature_matrix = Data.item_feature_matrix
+        
         self.dense_f_list_transforms = Data.dense_f_list_transforms
-
-        self.generator = EmbeddingGenerator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
-
-        self.user_id_Embeddings = nn.Embedding(self.user_num, opt.id_embedding_size)
-        self.item_id_Embeddings = nn.Embedding(self.item_num, opt.id_embedding_size)
-
-        self.device = device
-
         self.L = opt.L
         self.link_topk = opt.link_topk
-
-        self.user_degrees = Data.user_degrees 
-        self.item_degrees = Data.item_degrees
+        self.top_rate = opt.top_rate
+        self.convergence = opt.convergence
 
         sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[0])
         _, item_degree_list = zip(*sorted_item_degrees)
         self.item_degree_numpy = np.array(item_degree_list)
 
-        self.create_sparse_adjaceny()
-
-        self.top_rate = opt.top_rate
-        self.convergence = opt.convergence
+        self.device = device
+        self.generator = EmbeddingGenerator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
+        self.create_adjacency_matrix()
 
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
@@ -164,30 +160,28 @@ class Model(nn.Module):
         return l_pcl
         
 
-    def create_sparse_adjaceny(self):
+    def create_adjacency_matrix(self):
         index = [self.interact_train['userid'].tolist(), self.interact_train['itemid'].tolist()]
         value = [1.0] * len(self.interact_train)
 
         self.interact_matrix = torch.sparse_coo_tensor(index, value, (self.user_num, self.item_num)).to(self.device)
 
-        tmp_index = [self.interact_train['userid'].tolist(), (self.interact_train['itemid'] + self.user_num).tolist()]
-        tmp_adj = torch.sparse_coo_tensor(tmp_index, value, (self.user_num+self.item_num, self.user_num+self.item_num))
+        index = [self.interact_train['userid'].tolist(), (self.interact_train['itemid'] + self.user_num).tolist()]
+        matrix_size = self.user_num + self.item_num
+        adjacency_matrix = torch.sparse_coo_tensor(index, value, (matrix_size, matrix_size))
         
-        joint_adjaceny_matrix = (tmp_adj + tmp_adj.t()).coalesce()
+        adjacency_matrix = (adjacency_matrix + adjacency_matrix.t()).coalesce()
+        self.adjacency_matrix = adjacency_matrix.to(self.device)
+        
+        row_indices, col_indices = adjacency_matrix.indices()[0], adjacency_matrix.indices()[1]
+        adjacency_matrix_value = adjacency_matrix.values()
 
-        row_indices = joint_adjaceny_matrix.indices()[0]
-        col_indices = joint_adjaceny_matrix.indices()[1]
-        joint_adjaceny_matrix_value = joint_adjaceny_matrix.values()
+        norm_w = torch.pow(torch.sparse.sum(adjacency_matrix, dim=1).to_dense(), -1)
+        norm_w[torch.isinf(norm_w)] = 0
 
-
-        degree = torch.sparse.sum(joint_adjaceny_matrix, dim=1).to_dense()
-        degree = torch.pow(degree, -1)
-        degree[torch.isinf(degree)] = 0
-
-        self.joint_adjaceny_matrix = joint_adjaceny_matrix.to(self.device)
-
-        joint_adjaceny_matrix_normal_value = degree[row_indices] * joint_adjaceny_matrix_value
-        self.joint_adjaceny_matrix_normal_spatial = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), joint_adjaceny_matrix_normal_value, (self.user_num+self.item_num, self.user_num+self.item_num)).to(self.device)
+        adjacency_matrix_norm_value = norm_w[row_indices] * adjacency_matrix_value
+        self.adjacency_matrix_normed = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), \
+                                                                      adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
         
 
     def link_predict(self, item_degrees, top_rate):
@@ -284,7 +278,7 @@ class Model(nn.Module):
         enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
         for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.joint_adjaceny_matrix_normal_spatial.to_dense(), cur_embedding)
+            cur_embedding_ori = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
             cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
             cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
             all_embeddings.append(cur_embedding)
@@ -317,7 +311,7 @@ class Model(nn.Module):
         enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
         for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.joint_adjaceny_matrix_normal_spatial.to_dense(), cur_embedding)
+            cur_embedding_ori = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
             cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
             cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
             all_embeddings.append(cur_embedding)
@@ -333,29 +327,3 @@ class Model(nn.Module):
         score = torch.mm(user_embedded, pos_item_embedded.t())
 
         return score
-
-    def compute_embeddings(self):
-        row_index, colomn_index, joint_enhanced_value = self.link_predict(self.item_degrees, self.top_rate)
-        indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
-
-        # user_embeddings, item_embeddings = self.compute_embeddings()
-        cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
-
-        all_embeddings = [cur_embedding]
-
-        # item_num
-        enhance_weight = torch.from_numpy(inverse_sigmoid(self.item_degree_numpy, self.convergence))
-        # user_num + item_num
-        enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
-
-        for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.joint_adjaceny_matrix_normal_spatial, cur_embedding)
-            cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
-            cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
-            all_embeddings.append(cur_embedding)
-
-        all_embeddings = torch.stack(all_embeddings, dim=0)
-        all_embeddings = torch.mean(all_embeddings, dim=0, keepdim=False)
-        user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
-
-        return user_embeddings, item_embeddings
