@@ -85,7 +85,7 @@ class Model(nn.Module):
     def __init__(self, Data, opt, device):
         super(Model, self).__init__()
 
-        self.name = "Meta_final_2"
+        self.name = "MGL Reimplementation"
 
         self.interact_train = Data.interact_train
 
@@ -117,7 +117,43 @@ class Model(nn.Module):
         self.top_rate = opt.top_rate
         self.convergence = opt.convergence
 
+        # see 4.1 L_GL
+    def gl_loss(self, item1, item2):
 
+        mse_loss = nn.MSELoss()
+        item1_aux_embedding = self.generator.encode(item1)
+        item2_aux_embedding = self.generator.encode(item2) # batch size * d
+
+        item_list = list(range(self.item_num))
+        random.shuffle(item_list)
+        batch_size = item2_aux_embedding.shape[0]
+        item_neg = torch.tensor(item_list[:batch_size]).to(self.device)
+        item_neg_aux_embedding = self.generator.encode(item_neg)
+
+        score = torch.mm(item1_aux_embedding, item2_aux_embedding.permute(1, 0)).sigmoid()
+        score_neg = torch.mm(item1_aux_embedding, item_neg_aux_embedding.permute(1, 0)).sigmoid()
+
+        loss = (mse_loss(score, torch.ones_like(score)) + mse_loss(score_neg, torch.zeros_like(score_neg))) / 2
+
+        return loss
+
+
+    # see 4.2 L_PCL
+    def pcl_loss(self, pos_item):
+        pos_item_encoded = self.generator.encode(pos_item)
+        pos_item_decoded = self.generator.decode(pos_item_encoded)
+
+        pos_item_degree = self.item_degree_numpy[pos_item.cpu().numpy()]
+        probs = sigmoid(pos_item_degree, self.convergence)
+        m = torch.distributions.binomial.Binomial(1, torch.from_numpy(probs)).sample().to(self.device)
+
+        # batch
+        reg_loss = functional.mse_loss(pos_item_decoded, self.item_id_Embeddings(pos_item), reduction='none').mean(dim=-1, keepdim=False) 
+        if m.sum().item() == 0:
+            return 0 * torch.mul(m, reg_loss).sum()
+        reg_loss = torch.mul(m, reg_loss).sum() / (m.sum())
+        return reg_loss
+        
 
     def create_sparse_adjaceny(self):
         index = [self.interact_train['userid'].tolist(), self.interact_train['itemid'].tolist()]
@@ -179,44 +215,6 @@ class Model(nn.Module):
         joint_enhanced_value = enhanced_value * tail_item_degree
         
         return row_index, colomn_index, joint_enhanced_value
-
-
-    # see 4.1 L_GL
-    def gl_loss(self, item1, item2):
-
-        mse_loss = nn.MSELoss()
-        item1_aux_embedding = self.generator.encode(item1)
-        item2_aux_embedding = self.generator.encode(item2) # batch size * d
-
-        item_list = list(range(self.item_num))
-        random.shuffle(item_list)
-        batch_size = item2_aux_embedding.shape[0]
-        item_neg = torch.tensor(item_list[:batch_size]).to(self.device)
-        item_neg_aux_embedding = self.generator.encode(item_neg)
-
-        score = torch.mm(item1_aux_embedding, item2_aux_embedding.permute(1, 0)).sigmoid()
-        score_neg = torch.mm(item1_aux_embedding, item_neg_aux_embedding.permute(1, 0)).sigmoid()
-
-        loss = (mse_loss(score, torch.ones_like(score)) + mse_loss(score_neg, torch.zeros_like(score_neg))) / 2
-
-        return loss
-
-
-
-    def pcl_loss(self, pos_item):
-        pos_item_encoded = self.generator.encode(pos_item)
-        pos_item_decoded = self.generator.decode(pos_item_encoded)
-
-        pos_item_degree = self.item_degree_numpy[pos_item.cpu().numpy()]
-        probs = sigmoid(pos_item_degree, self.convergence)
-        m = torch.distributions.binomial.Binomial(1, torch.from_numpy(probs)).sample().to(self.device)
-
-        # batch
-        reg_loss = functional.mse_loss(pos_item_decoded, self.item_id_Embeddings(pos_item), reduction='none').mean(dim=-1, keepdim=False) 
-        if m.sum().item() == 0:
-            return 0 * torch.mul(m, reg_loss).sum()
-        reg_loss = torch.mul(m, reg_loss).sum() / (m.sum())
-        return reg_loss
 
 
     def q_link_predict(self, item_degrees, top_rate, fast_weights):
