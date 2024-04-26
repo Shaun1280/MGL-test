@@ -181,24 +181,23 @@ class Model(nn.Module):
         return row_index, colomn_index, joint_enhanced_value
 
 
-
+    # see 4.1 L_GL
     def gl_loss(self, item1, item2):
 
         mse_loss = nn.MSELoss()
-        item1_embedded = self.generator.encode(item1)
-        item2_embedded = self.generator.encode(item2)
+        item1_aux_embedding = self.generator.encode(item1)
+        item2_aux_embedding = self.generator.encode(item2) # batch size * d
 
         item_list = list(range(self.item_num))
         random.shuffle(item_list)
-        item2_num = item2_embedded.shape[0]
-        item_false = torch.tensor(item_list[:item2_num]).to(self.device)
+        batch_size = item2_aux_embedding.shape[0]
+        item_neg = torch.tensor(item_list[:batch_size]).to(self.device)
+        item_neg_aux_embedding = self.generator.encode(item_neg)
 
-        item_false_embedded = self.generator.encode(item_false)
+        score = torch.mm(item1_aux_embedding, item2_aux_embedding.permute(1, 0)).sigmoid()
+        score_neg = torch.mm(item1_aux_embedding, item_neg_aux_embedding.permute(1, 0)).sigmoid()
 
-        i2i_score = torch.mm(item1_embedded, item2_embedded.permute(1, 0)).sigmoid()
-        i2i_score_false = torch.mm(item1_embedded, item_false_embedded.permute(1, 0)).sigmoid()
-
-        loss = (mse_loss(i2i_score, torch.ones_like(i2i_score)) + mse_loss(i2i_score_false, torch.zeros_like(i2i_score_false))) / 2
+        loss = (mse_loss(score, torch.ones_like(score)) + mse_loss(score_neg, torch.zeros_like(score_neg))) / 2
 
         return loss
 
