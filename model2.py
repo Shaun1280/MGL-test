@@ -14,7 +14,7 @@ def inverse_sigmoid(x, k):
 
 class Generator(nn.Module):
     def __init__(self, user_num, item_num, item_feature_list, item_feature_matrix, dense_f_list_transforms, opt, device):
-        super(Generator, self).__init__()
+        super().__init__()
 
         self.user_num = user_num
         self.item_num = item_num
@@ -78,7 +78,7 @@ class Generator(nn.Module):
 
 class Model(nn.Module):
     def __init__(self, Data, opt, device):
-        super(Model, self).__init__()
+        super().__init__()
 
         self.name = "MGL Reimplementation"
 
