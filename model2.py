@@ -169,19 +169,17 @@ class Model(nn.Module):
         adjaceny_matrix = torch.sparse_coo_tensor(index, value, (matrix_size, matrix_size))
         
         adjaceny_matrix = (adjaceny_matrix + adjaceny_matrix.t()).coalesce()
-
-        row_indices = adjaceny_matrix.indices()[0]
-        col_indices = adjaceny_matrix.indices()[1]
+        self.adjaceny_matrix = adjaceny_matrix.to(self.device)
+        
+        row_indices, col_indices = adjaceny_matrix.indices()[0], adjaceny_matrix.indices()[1]
         adjaceny_matrix_value = adjaceny_matrix.values()
 
-        degree = torch.sparse.sum(adjaceny_matrix, dim=1).to_dense()
-        degree = torch.pow(degree, -1)
-        degree[torch.isinf(degree)] = 0
+        norm_w = torch.pow(torch.sparse.sum(adjaceny_matrix, dim=1).to_dense(), -1)
+        norm_w[torch.isinf(norm_w)] = 0
 
-        self.adjaceny_matrix = adjaceny_matrix.to(self.device)
-
-        adjaceny_matrix_normal_value = degree[row_indices] * adjaceny_matrix_value
-        self.adjaceny_matrix_normal_spatial = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), adjaceny_matrix_normal_value, (matrix_size, matrix_size)).to(self.device)
+        adjaceny_matrix_norm_value = norm_w[row_indices] * adjaceny_matrix_value
+        self.adjaceny_matrix_normed = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), \
+                                                                      adjaceny_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
         
 
     def link_predict(self, item_degrees, top_rate):
@@ -278,7 +276,7 @@ class Model(nn.Module):
         enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
         for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.adjaceny_matrix_normal_spatial.to_dense(), cur_embedding)
+            cur_embedding_ori = torch.mm(self.adjaceny_matrix_normed.to_dense(), cur_embedding)
             cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
             cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
             all_embeddings.append(cur_embedding)
@@ -311,7 +309,7 @@ class Model(nn.Module):
         enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
         for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.adjaceny_matrix_normal_spatial.to_dense(), cur_embedding)
+            cur_embedding_ori = torch.mm(self.adjaceny_matrix_normed.to_dense(), cur_embedding)
             cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
             cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
             all_embeddings.append(cur_embedding)
@@ -343,7 +341,7 @@ class Model(nn.Module):
         enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
         for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.adjaceny_matrix_normal_spatial, cur_embedding)
+            cur_embedding_ori = torch.mm(self.adjaceny_matrix_normed, cur_embedding)
             cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
             cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
             all_embeddings.append(cur_embedding)
