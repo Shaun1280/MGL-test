@@ -9,7 +9,7 @@ import random
 
 
 def inverse_sigmoid(x, k):
-    s = k / (k + np.exp(x/k))
+    s = k / (k + np.exp(x / k))
     return s
 
 class Generator(nn.Module):
