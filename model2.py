@@ -182,7 +182,7 @@ class Model(nn.Module):
 
 
 
-    def i2i(self, item1, item2):
+    def gl_loss(self, item1, item2):
 
         mse_loss = nn.MSELoss()
         item1_embedded = self.generator.encode(item1)
@@ -204,7 +204,7 @@ class Model(nn.Module):
 
 
 
-    def reg(self, pos_item):
+    def pcl_loss(self, pos_item):
         pos_item_encoded = self.generator.encode(pos_item)
         pos_item_decoded = self.generator.decode(pos_item_encoded)
 

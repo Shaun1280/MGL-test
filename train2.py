@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 from collections import defaultdict
 
-from model import Model
+from model2 import Model
 
 import load_data2 as load_data
 
@@ -167,7 +167,7 @@ def one_train(Data, opt):
                 item2 = item2.to(device)
 
                 # F = L_GL + lambda * L_PCL. Refer to equation (15)
-                F = model.i2i(item1, item2) + opt.reg_lambda * model.reg(item1)
+                F = model.gl_loss(item1, item2) + opt.reg_lambda * model.pcl_loss(item1)
 
                 # theta
                 theta = list(model.generator.encoder.state_dict().values())
