@@ -167,22 +167,22 @@ def one_train(Data, opt):
                 item2 = item2.to(device)
 
                 # F = L_GL + lambda * L_PCL. Refer to equation (15)
-                support_loss = model.i2i(item1, item2) + opt.reg_lambda * model.reg(item1)
+                F = model.i2i(item1, item2) + opt.reg_lambda * model.reg(item1)
 
                 # theta
-                weight_for_local_update = list(model.generator.encoder.state_dict().values())
+                theta = list(model.generator.encoder.state_dict().values())
 
                 # F'. Refer to equation (17)
-                grad = torch.autograd.grad(support_loss, model.generator.encoder.parameters(), create_graph=True, allow_unused=True)
+                grad_F = torch.autograd.grad(F, model.generator.encoder.parameters(), create_graph=True, allow_unused=True)
                 
-                fast_weights = []
-                for i, weight in enumerate(weight_for_local_update):
-                    fast_weights.append(weight - opt.local_lr * grad[i])
+                new_theta = []
+                for i, weight in enumerate(theta):
+                    new_theta.append(weight - opt.local_lr * grad_F[i])
                 # J
-                query_loss = model.q_forward(user_id, observed_item, unobserved_item, fast_weights)
+                J = model.q_forward(user_id, observed_item, unobserved_item, new_theta)
 
                 # equation (17)
-                loss = query_loss + opt.beta * support_loss
+                loss = J + opt.beta * F
 
                 train_loss += loss.item()
 
