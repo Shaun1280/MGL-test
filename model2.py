@@ -8,14 +8,9 @@ import torch_sparse
 import random
 
 
-def sigmoid(x, k):
-    s = 1 - (k / (k + np.exp(x/k)))
-    return s
-
 def inverse_sigmoid(x, k):
     s = k / (k + np.exp(x/k))
     return s
-
 
 class Generator(nn.Module):
     def __init__(self, user_num, item_num, item_feature_list, item_feature_matrix, dense_f_list_transforms, opt, device):
@@ -117,7 +112,7 @@ class Model(nn.Module):
         self.top_rate = opt.top_rate
         self.convergence = opt.convergence
 
-        # see 4.1 L_GL
+    # see 4.1 L_GL
     def gl_loss(self, item1, item2):
 
         mse_loss = nn.MSELoss()
@@ -139,20 +134,28 @@ class Model(nn.Module):
 
 
     # see 4.2 L_PCL
-    def pcl_loss(self, pos_item):
-        pos_item_encoded = self.generator.encode(pos_item)
-        pos_item_decoded = self.generator.decode(pos_item_encoded)
+    def pcl_loss(self, observed_item):
+        observed_item_aux_embedding = self.generator.encode(observed_item)
+        observed_item_org_embedding = self.generator.decode(observed_item_aux_embedding)
 
-        pos_item_degree = self.item_degree_numpy[pos_item.cpu().numpy()]
-        probs = sigmoid(pos_item_degree, self.convergence)
-        m = torch.distributions.binomial.Binomial(1, torch.from_numpy(probs)).sample().to(self.device)
+        def pop(x, k):
+            p = 1 - (k / (k + np.exp(x / k)))
+            return p
 
-        # batch
-        reg_loss = functional.mse_loss(pos_item_decoded, self.item_id_Embeddings(pos_item), reduction='none').mean(dim=-1, keepdim=False) 
+        # equation(11)
+        item_degree = self.item_degree_numpy[observed_item.cpu().numpy()]
+        item_pop = pop(item_degree, self.convergence)
+        
+        # this determines whether the pcl loss will be omitted
+        m = torch.distributions.binomial.Binomial(1, torch.from_numpy(item_pop)).sample().to(self.device)
+
+        l_pcl = functional.mse_loss(observed_item_org_embedding, self.item_id_Embeddings(observed_item), reduction='none').mean(dim=-1, keepdim=False) 
+        
         if m.sum().item() == 0:
-            return 0 * torch.mul(m, reg_loss).sum()
-        reg_loss = torch.mul(m, reg_loss).sum() / (m.sum())
-        return reg_loss
+            return 0 * torch.mul(m, l_pcl).sum()
+        
+        l_pcl = torch.mul(m, l_pcl).sum() / m.sum() # taking the average over a batch
+        return l_pcl
         
 
     def create_sparse_adjaceny(self):
