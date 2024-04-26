@@ -75,14 +75,7 @@ def test(Data, opt):
             print("tail_RECALL@{}: {}".format(K, np.mean(tail_RECALL[K])))
             print('\r\r')
 
-def one_train(Data, opt):
-    print(opt)
-    print('Building dataloader >>>>>>>>>>>>>>>>>>>')
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    print(device)
-
+def generate_item_pair(Data, opt, device):
     # [...userindex, ...itemindex]. 
     # Can be considered as zip(userindex, itemindex) for all interactions.
     index = [Data.interact_train['userid'].tolist(), Data.interact_train['itemid'].tolist()]
@@ -123,17 +116,26 @@ def one_train(Data, opt):
     # S'_mask = S' .* M .* M^T
     s_prime.mul_(mask).mul_(mask.t())
 
-    s_prime = s_prime.coalesce()
+    s_prime_mask = s_prime.coalesce()
 
-    item1 = s_prime.indices()[0].tolist()
-    item2 = s_prime.indices()[1].tolist()
+    item1 = s_prime_mask.indices()[0].tolist()
+    item2 = s_prime_mask.indices()[1].tolist()
+
     # we retrieve (i, j) where S'_mask_{i, j} = 1
     item_pair = list(zip(item1, item2))
 
+    return item_pair
+
+def one_train(Data, opt):
+    print(opt)
+    print('Building dataloader >>>>>>>>>>>>>>>>>>>')
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    print(device)
 
     print("building model >>>>>>>>>>>>>>>")
     model = Model(Data, opt, device)
-
 
     print('Building optimizers >>>>>>>')
     optimizer = optim.Adam(model.parameters(), lr=opt.lr)
@@ -142,6 +144,8 @@ def one_train(Data, opt):
     start_epoch = 0
     # directory = directory_name_generate(model, opt, "no early stop")
     model = model.to(device)
+
+    item_pair = generate_item_pair(Data, opt, device)
     support_loader = DataLoader(item_pair, shuffle=True, batch_size=opt.batch_size, collate_fn=None)
 
     recalls = []
