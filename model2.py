@@ -85,32 +85,28 @@ class Model(nn.Module):
         self.interact_train = Data.interact_train
 
         self.user_num = Data.user_num
+        self.user_degrees = Data.user_degrees 
+        self.user_id_Embeddings = nn.Embedding(self.user_num, opt.id_embedding_size)
+
         self.item_num = Data.item_num
+        self.item_degrees = Data.item_degrees
+        self.item_id_Embeddings = nn.Embedding(self.item_num, opt.id_embedding_size)
         self.item_feature_list = Data.item_feature_list
         self.item_feature_matrix = Data.item_feature_matrix
+        
         self.dense_f_list_transforms = Data.dense_f_list_transforms
-
-        self.generator = Generator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
-
-        self.user_id_Embeddings = nn.Embedding(self.user_num, opt.id_embedding_size)
-        self.item_id_Embeddings = nn.Embedding(self.item_num, opt.id_embedding_size)
-
-        self.device = device
-
         self.L = opt.L
         self.link_topk = opt.link_topk
-
-        self.user_degrees = Data.user_degrees 
-        self.item_degrees = Data.item_degrees
+        self.top_rate = opt.top_rate
+        self.convergence = opt.convergence
 
         sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[0])
         _, item_degree_list = zip(*sorted_item_degrees)
         self.item_degree_numpy = np.array(item_degree_list)
 
+        self.device = device
+        self.generator = Generator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
         self.create_adjacency_matrix()
-
-        self.top_rate = opt.top_rate
-        self.convergence = opt.convergence
 
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
