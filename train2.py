@@ -42,12 +42,12 @@ def test(Data, opt):
 
     with torch.no_grad():
         with tqdm(total=len(test_loader), desc="predicting") as pbar:
-            for _, (user_id, pos_item) in enumerate(test_loader):
+            for _, (user_id, observed_item) in enumerate(test_loader):
                 user_id = user_id.to(device)
 
                 score = model.predict(user_id)
                 score = torch.mul(user_historical_mask[user_id], score).cpu().detach().numpy()
-                ground_truth = pos_item.detach().numpy()
+                ground_truth = observed_item.detach().numpy()
 
                 for K in opt.K_list:
                     metrics = metric.ranking_measure_testset(score, ground_truth, K, list(Data.testset_item.keys()))
@@ -94,8 +94,8 @@ def one_train(Data, opt):
     interact_matrix = torch.sparse_coo_tensor(index, value, (Data.user_num, Data.item_num)).to(device)
 
     # R^T * R
-    i2i = torch.sparse.mm(interact_matrix.t().to_dense(), interact_matrix.to_dense())
-    i2i = i2i.to_sparse()
+    rtr = torch.sparse.mm(interact_matrix.t().to_dense(), interact_matrix.to_dense())
+    rtr = rtr.to_sparse()
 
     def sparse_min(A):
         A = A.coalesce()
@@ -105,7 +105,7 @@ def one_train(Data, opt):
         return torch.sparse_coo_tensor(A_indices, A_values, A.shape).to(A.device)
 
     # S'
-    i2i = sparse_min(i2i)
+    s_prime = sparse_min(rtr)
 
     def get_mask(item_num, rate=0.2):
         zeros_num = int(item_num * rate)
@@ -121,14 +121,14 @@ def one_train(Data, opt):
     
     # inplace operation
     # S'_mask = S' .* M .* M^T
-    i2i.mul_(mask).mul_(mask.t())
+    s_prime.mul_(mask).mul_(mask.t())
 
-    i2i = i2i.coalesce()
+    s_prime = s_prime.coalesce()
 
-    item1 = i2i.indices()[0].tolist()
-    item2 = i2i.indices()[1].tolist()
+    item1 = s_prime.indices()[0].tolist()
+    item2 = s_prime.indices()[1].tolist()
     # we retrieve (i, j) where S'_mask_{i, j} = 1
-    i2i_pair = list(zip(item1, item2))
+    item_pair = list(zip(item1, item2))
 
 
     print("building model >>>>>>>>>>>>>>>")
@@ -142,7 +142,7 @@ def one_train(Data, opt):
     start_epoch = 0
     # directory = directory_name_generate(model, opt, "no early stop")
     model = model.to(device)
-    support_loader = DataLoader(i2i_pair, shuffle=True, batch_size=opt.batch_size, collate_fn=None)
+    support_loader = DataLoader(item_pair, shuffle=True, batch_size=opt.batch_size, collate_fn=None)
 
     recalls = []
     for epoch in range(start_epoch, opt.epoch):
@@ -153,10 +153,10 @@ def one_train(Data, opt):
 
         train_loss = 0
         with tqdm(total=len(train_loader), desc="epoch"+str(epoch)) as pbar:
-            for index, (user_id, pos_item, neg_item) in enumerate(train_loader):
+            for index, (user_id, observed_item, unobserved_item) in enumerate(train_loader):
                 user_id = user_id.to(device)
-                pos_item = pos_item.to(device)
-                neg_item = neg_item.to(device)
+                observed_item = observed_item.to(device)
+                unobserved_item = unobserved_item.to(device)
 
                 item1, item2 = next(support_iter)
                 item1 = item1.to(device)
@@ -175,7 +175,7 @@ def one_train(Data, opt):
                 for i, weight in enumerate(weight_for_local_update):
                     fast_weights.append(weight - opt.local_lr * grad[i])
                 # J
-                query_loss = model.q_forward(user_id, pos_item, neg_item, fast_weights)
+                query_loss = model.q_forward(user_id, observed_item, unobserved_item, fast_weights)
 
                 # equation (17)
                 loss = query_loss + opt.beta * support_loss
@@ -196,13 +196,13 @@ def one_train(Data, opt):
             RECALL20 = []
 
             with tqdm(total=len(val_loader), desc="validating") as pbar:
-                for _, (user_id, pos_item) in enumerate(val_loader):
+                for _, (user_id, observed_item) in enumerate(val_loader):
                     user_id = user_id.to(device)
-                    # pos_item (uuu * item_num)
+                    # observed_item (uuu * item_num)
                     # uuu * item_num
                     score = model.predict(user_id)
                     score = torch.mul(user_historical_mask[user_id], score).cpu().detach().numpy()
-                    ground_truth = pos_item.detach().numpy()
+                    ground_truth = observed_item.detach().numpy()
 
                     for K in opt.K_list:
                         metrics = metric.ranking_measure_testset(score, ground_truth, K, list(Data.valset_item.keys()))
