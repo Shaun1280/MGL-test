@@ -98,9 +98,13 @@ class Model(nn.Module):
         self.item_feature_list = Data.item_feature_list
         self.item_feature_matrix = Data.item_feature_matrix
 
-        self.sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[1])
-        sorted_item_list, self.item_degree_list = zip(*self.sorted_item_degrees)
+        # sort by id
+        self.sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[0])
+        _, self.item_degree_list = zip(*self.sorted_item_degrees)
 
+        # sort by degree
+        self.sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[1])
+        sorted_item_list, _= zip(*self.sorted_item_degrees)
         self.top_rate = opt.top_rate
         self.top_length = int(self.item_num * self.top_rate)
         self.top_item = torch.tensor(sorted_item_list[-self.top_length:]).to(self.device)
