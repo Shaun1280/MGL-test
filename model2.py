@@ -181,7 +181,7 @@ class Model(nn.Module):
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
 
 
-    def q_link_predict(self, item_degrees, top_rate, theta):
+    def forward_link_predict(self, item_degrees, top_rate, theta):
 
         sorted_item_degrees = sorted(item_degrees.items(), key=lambda x: x[1])
         item_list_sorted, d_item = zip(*sorted_item_degrees)
@@ -229,7 +229,7 @@ class Model(nn.Module):
 
 
     def forward(self, user_id, pos_item, neg_item, theta, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
-        row_index, colomn_index, joint_enhanced_value = self.q_link_predict(self.item_degrees, self.top_rate, theta)
+        row_index, colomn_index, joint_enhanced_value = self.forward_link_predict(self.item_degrees, self.top_rate, theta)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
