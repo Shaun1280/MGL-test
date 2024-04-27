@@ -161,14 +161,15 @@ class Model(nn.Module):
         index = [self.interact_train['userid'].tolist(), self.interact_train['itemid'].tolist()]
         value = [1.0] * len(self.interact_train)
 
+        # R in 3
         self.interact_matrix = torch.sparse_coo_tensor(index, value, (self.user_num, self.item_num)).to(self.device)
 
         index = [self.interact_train['userid'].tolist(), (self.interact_train['itemid'] + self.user_num).tolist()]
         matrix_size = self.user_num + self.item_num
         adjacency_matrix = torch.sparse_coo_tensor(index, value, (matrix_size, matrix_size))
         
+        # A_G in 3
         adjacency_matrix = (adjacency_matrix + adjacency_matrix.t()).coalesce()
-        self.adjacency_matrix = adjacency_matrix.to(self.device)
         
         row_indices, col_indices = adjacency_matrix.indices()[0], adjacency_matrix.indices()[1]
         adjacency_matrix_value = adjacency_matrix.values()
@@ -177,6 +178,8 @@ class Model(nn.Module):
         norm_deg[torch.isinf(norm_deg)] = 0
 
         adjacency_matrix_norm_value = norm_deg[row_indices] * adjacency_matrix_value
+
+        # nomalized A_G
         self.adjacency_matrix_normed = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), \
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
 
