@@ -142,19 +142,25 @@ class Model(nn.Module):
 
         # equation (14)
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
-
-        enhanced_weight = torch.cat([torch.zeros(self.user_num), \
-                                    torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
-                                        .to(self.device).float()
-
         all_embeddings = [cur_embedding]
 
         matrix_size = self.user_num + self.item_num
 
+        s_hat_norm_weight = torch.cat([torch.zeros(self.user_num), \
+                            torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
+                                .to(self.device).float()
+
         for _ in range(self.L):
+            # equation (3)
+            # contribution of A_G without S_hat
             original_embedding = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
+
+            # contribution of S_hat
             enhanced_embedding = torch_sparse.spmm(indice, joint_enhanced_value, matrix_size, matrix_size, cur_embedding)
-            cur_embedding = original_embedding + enhanced_weight.unsqueeze(-1) * enhanced_embedding
+
+            # sum up
+            cur_embedding = original_embedding + s_hat_norm_weight.unsqueeze(-1) * enhanced_embedding
+
             all_embeddings.append(cur_embedding)
 
         all_embeddings = torch.stack(all_embeddings, dim=0)
@@ -255,6 +261,7 @@ class Model(nn.Module):
 
 
     def rec_loss(self, user_id, observed_item, unobserved_item, theta):
+        # sparse representation of S hat 
         row_index, colomn_index, joint_enhanced_value = self.forward_link_predict(self.item_degrees, self.top_rate, theta)
         
         all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
@@ -305,6 +312,7 @@ class Model(nn.Module):
         return row_index, colomn_index, joint_enhanced_value
 
     def predict(self, user_id):
+        # sparse representation of S hat 
         row_index, colomn_index, joint_enhanced_value = self.link_predict(self.item_degrees, self.top_rate)
 
         all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
