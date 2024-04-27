@@ -252,9 +252,9 @@ class Model(nn.Module):
         pos_score = torch.mul(user_embedded, pos_item_embedded).sum(dim=-1, keepdim=False)
         neg_score = torch.mul(user_embedded, neg_item_embedded).sum(dim=-1, keepdim=False)
 
-        rec_loss = -(pos_score - neg_score).sigmoid().log().mean()
+        l_rec = -(pos_score - neg_score).sigmoid().log().mean()
         
-        return rec_loss
+        return l_rec
 
     def link_predict(self, item_degrees, top_rate):
 
