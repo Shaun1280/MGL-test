@@ -106,8 +106,7 @@ def generate_item_pair(Data, opt, device):
         for row in new_array:
             row[:zeros_num] = 0
             np.random.shuffle(row)
-        re_array = torch.from_numpy(new_array).to_sparse().to(device)
-        return re_array
+        return torch.from_numpy(new_array).to_sparse().to(device)
 
     # M
     mask = get_mask(Data.item_num)
