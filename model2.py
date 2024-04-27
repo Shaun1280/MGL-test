@@ -146,9 +146,6 @@ class Model(nn.Module):
             return k / (k + np.exp(x / k))
 
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
-        s_hat_norm_weight = torch.cat([torch.zeros(self.user_num), \
-                            torch.from_numpy(inverse_pop(np.array(self.item_degree_list), self.convergence))], dim=-1) \
-                                .to(self.device).float()
         
         # equation (14)
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
@@ -165,7 +162,7 @@ class Model(nn.Module):
             enhanced_embedding = torch_sparse.spmm(indice, joint_enhanced_value, matrix_size, matrix_size, cur_embedding)
 
             # sum up
-            cur_embedding = original_embedding + s_hat_norm_weight.unsqueeze(-1) * enhanced_embedding
+            cur_embedding = original_embedding + enhanced_embedding
 
             all_embeddings.append(cur_embedding)
 
