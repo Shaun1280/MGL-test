@@ -80,6 +80,12 @@ class Model(nn.Module):
 
         self.name = "MGL Reimplementation"
 
+        self.device = device
+
+        self.L = opt.L
+        self.convergence = opt.convergence
+        self.link_topk = opt.link_topk
+        self.dense_f_list_transforms = Data.dense_f_list_transforms
         self.interact_train = Data.interact_train
 
         self.user_num = Data.user_num
@@ -91,18 +97,14 @@ class Model(nn.Module):
         self.item_id_Embeddings = nn.Embedding(self.item_num, opt.id_embedding_size)
         self.item_feature_list = Data.item_feature_list
         self.item_feature_matrix = Data.item_feature_matrix
-        
-        self.dense_f_list_transforms = Data.dense_f_list_transforms
-        self.L = opt.L
-        self.link_topk = opt.link_topk
+
+        self.sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[1])
+        self.sorted_item_list, self.item_degree_list = zip(*self.sorted_item_degrees)
+
         self.top_rate = opt.top_rate
-        self.convergence = opt.convergence
+        self.top_length = int(self.item_num * self.top_rate)
+        self.top_item = torch.tensor(self.sorted_item_list[-self.top_length:]).to(self.device)
 
-        sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[0])
-        _, item_degree_list = zip(*sorted_item_degrees)
-        self.item_degree_numpy = np.array(item_degree_list)
-
-        self.device = device
         self.generator = EmbeddingGenerator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
         self._create_adjacency_matrix()
 
@@ -147,7 +149,7 @@ class Model(nn.Module):
         matrix_size = self.user_num + self.item_num
 
         s_hat_norm_weight = torch.cat([torch.zeros(self.user_num), \
-                            torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
+                            torch.from_numpy(inverse_pop(np.array(self.item_degree_list), self.convergence))], dim=-1) \
                                 .to(self.device).float()
 
         for _ in range(self.L):
@@ -196,7 +198,7 @@ class Model(nn.Module):
             return 1 - (k / (k + np.exp(x / k)))
 
         # equation(11)
-        item_degree = self.item_degree_numpy[observed_item.cpu().numpy()]
+        item_degree = np.array(self.item_degree_list)[observed_item.cpu().numpy()]
         item_pop = pop(item_degree, self.convergence)
         
         # this determines whether the pcl loss will be omitted
@@ -214,21 +216,13 @@ class Model(nn.Module):
 
 
     def forward_link_predict(self, item_degrees, top_rate, theta):
-
-        sorted_item_degrees = sorted(item_degrees.items(), key=lambda x: x[1])
-        item_list_sorted, d_item = zip(*sorted_item_degrees)
-        item_tail = torch.tensor(item_list_sorted).to(self.device)
-
-        top_length = int(self.item_num * top_rate)
-        item_top = torch.tensor(item_list_sorted[-top_length:]).to(self.device)
-
-
         encoder_0_weight = theta[0]
         encoder_0_bias = theta[1]
         encoder_2_weight = theta[2]
         encoder_2_bias = theta[3]
 
-        top_item_feature = self.generator.embed_feature(item_top)
+        item_tail = torch.tensor(self.sorted_item_list).to(self.device)
+        top_item_feature = self.generator.embed_feature(self.top_item)
         tail_item_feature = self.generator.embed_feature(item_tail)
 
         top_item_hidden = torch.mm(top_item_feature, encoder_0_weight.t()) + encoder_0_bias
@@ -236,7 +230,6 @@ class Model(nn.Module):
 
         tail_item_hidden = torch.mm(tail_item_feature, encoder_0_weight.t()) + encoder_0_bias
         tail_item_embedded = torch.mm(tail_item_hidden, encoder_2_weight.t()) + encoder_2_bias
-
         
         i2i_score = torch.mm(tail_item_embedded, top_item_embedded.t())
 
@@ -250,7 +243,7 @@ class Model(nn.Module):
 
 
         tail_item_index = item_tail.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        top_item_index = item_top.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
+        top_item_index = self.top_item.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
         enhanced_value = i2i_score_masked.reshape(-1)
 
         row_index = (tail_item_index + self.user_num).unsqueeze(0)
@@ -277,16 +270,9 @@ class Model(nn.Module):
         return -(observed_score - unobserved_score).sigmoid().log().mean()
 
     def link_predict(self, item_degrees, top_rate):
+        item_tail = torch.tensor(self.sorted_item_list).to(self.device)
 
-        sorted_item_degrees = sorted(item_degrees.items(), key=lambda x: x[1])
-        item_list_sorted, d_item = zip(*sorted_item_degrees)
-        item_tail = torch.tensor(item_list_sorted).to(self.device)
-
-        top_length = int(self.item_num * top_rate)
-        item_top = torch.tensor(item_list_sorted[-top_length:]).to(self.device)
-
-
-        top_item_embedded = self.generator.encode(item_top)
+        top_item_embedded = self.generator.encode(self.top_item)
         tail_item_embedded = self.generator.encode(item_tail)
         
         i2i_score = torch.mm(tail_item_embedded, top_item_embedded.t())
@@ -302,7 +288,7 @@ class Model(nn.Module):
 
 
         tail_item_index = item_tail.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        top_item_index = item_top.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
+        top_item_index = self.top_item.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
         enhanced_value = i2i_score_masked.reshape(-1)
 
         row_index = (tail_item_index + self.user_num).unsqueeze(0)
