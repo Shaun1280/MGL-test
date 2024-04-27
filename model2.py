@@ -181,8 +181,8 @@ class Model(nn.Module):
         item_neg = torch.tensor(item_list[:batch_size]).to(self.device)
         item_neg_aux_embedding = self.generator.encode(item_neg)
 
-        score = torch.mm(item1_aux_embedding, item2_aux_embedding.permute(1, 0)).sigmoid()
-        score_neg = torch.mm(item1_aux_embedding, item_neg_aux_embedding.permute(1, 0)).sigmoid()
+        score = torch.mm(item1_aux_embedding, item2_aux_embedding.t()).sigmoid()
+        score_neg = torch.mm(item1_aux_embedding, item_neg_aux_embedding.t()).sigmoid()
 
         return (mse_loss(score, torch.ones_like(score)) + mse_loss(score_neg, torch.zeros_like(score_neg))) / 2
 
@@ -238,7 +238,7 @@ class Model(nn.Module):
         tail_item_embedded = torch.mm(tail_item_hidden, encoder_2_weight.t()) + encoder_2_bias
 
         
-        i2i_score = torch.mm(tail_item_embedded, top_item_embedded.permute(1, 0))
+        i2i_score = torch.mm(tail_item_embedded, top_item_embedded.t())
 
         i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
         i2i_score_masked = i2i_score_masked.sigmoid()
@@ -289,7 +289,7 @@ class Model(nn.Module):
         top_item_embedded = self.generator.encode(item_top)
         tail_item_embedded = self.generator.encode(item_tail)
         
-        i2i_score = torch.mm(tail_item_embedded, top_item_embedded.permute(1, 0))
+        i2i_score = torch.mm(tail_item_embedded, top_item_embedded.t())
 
         i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
         i2i_score_masked = i2i_score_masked.sigmoid()
