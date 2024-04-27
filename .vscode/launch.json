@@ -12,11 +12,11 @@
             "console": "integratedTerminal",
             "args": [
                 "--dataset_name",
-                "ml",
+                "bx",
                 "--epoch",
                 "1",
-                "--output",
-                "model-bx-0.tar",
+                // "--output",
+                // "model-bx-0.tar",
                 "--model",
                 "model-bx-0.tar"
             ]

@@ -171,42 +171,6 @@ class Model(nn.Module):
         adjacency_matrix_norm_value = norm_w[row_indices] * adjacency_matrix_value
         self.adjacency_matrix_normed = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), \
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
-        
-
-    def link_predict(self, item_degrees, top_rate):
-
-        sorted_item_degrees = sorted(item_degrees.items(), key=lambda x: x[1])
-        item_list_sorted, d_item = zip(*sorted_item_degrees)
-        item_tail = torch.tensor(item_list_sorted).to(self.device)
-
-        top_length = int(self.item_num * top_rate)
-        item_top = torch.tensor(item_list_sorted[-top_length:]).to(self.device)
-
-
-        top_item_embedded = self.generator.encode(item_top)
-        tail_item_embedded = self.generator.encode(item_tail)
-        
-        i2i_score = torch.mm(tail_item_embedded, top_item_embedded.permute(1, 0))
-
-        i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
-        i2i_score_masked = i2i_score_masked.sigmoid()
-
-
-        tail_item_degree = torch.sum(i2i_score_masked, dim=1)
-        top_item_degree = torch.sum(i2i_score_masked, dim=0)
-        tail_item_degree = torch.pow(tail_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
-        top_item_degree = torch.pow(top_item_degree + 1, -1).unsqueeze(0).expand_as(i2i_score_masked).reshape(-1)
-
-
-        tail_item_index = item_tail.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        top_item_index = item_top.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        enhanced_value = i2i_score_masked.reshape(-1)
-
-        row_index = (tail_item_index+self.user_num).unsqueeze(0)
-        colomn_index = (top_item_index+self.user_num).unsqueeze(0)
-        joint_enhanced_value = enhanced_value * tail_item_degree
-        
-        return row_index, colomn_index, joint_enhanced_value
 
 
     def q_link_predict(self, item_degrees, top_rate, fast_weights):
@@ -286,6 +250,40 @@ class Model(nn.Module):
         
         return rec_loss
 
+    def link_predict(self, item_degrees, top_rate):
+
+        sorted_item_degrees = sorted(item_degrees.items(), key=lambda x: x[1])
+        item_list_sorted, d_item = zip(*sorted_item_degrees)
+        item_tail = torch.tensor(item_list_sorted).to(self.device)
+
+        top_length = int(self.item_num * top_rate)
+        item_top = torch.tensor(item_list_sorted[-top_length:]).to(self.device)
+
+
+        top_item_embedded = self.generator.encode(item_top)
+        tail_item_embedded = self.generator.encode(item_tail)
+        
+        i2i_score = torch.mm(tail_item_embedded, top_item_embedded.permute(1, 0))
+
+        i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
+        i2i_score_masked = i2i_score_masked.sigmoid()
+
+
+        tail_item_degree = torch.sum(i2i_score_masked, dim=1)
+        top_item_degree = torch.sum(i2i_score_masked, dim=0)
+        tail_item_degree = torch.pow(tail_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
+        top_item_degree = torch.pow(top_item_degree + 1, -1).unsqueeze(0).expand_as(i2i_score_masked).reshape(-1)
+
+
+        tail_item_index = item_tail.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
+        top_item_index = item_top.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
+        enhanced_value = i2i_score_masked.reshape(-1)
+
+        row_index = (tail_item_index+self.user_num).unsqueeze(0)
+        colomn_index = (top_item_index+self.user_num).unsqueeze(0)
+        joint_enhanced_value = enhanced_value * tail_item_degree
+        
+        return row_index, colomn_index, joint_enhanced_value
 
     # full item set
     def predict(self, user_id, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
