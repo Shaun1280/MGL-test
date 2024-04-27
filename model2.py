@@ -228,7 +228,7 @@ class Model(nn.Module):
         return row_index, colomn_index, joint_enhanced_value
 
 
-    def forward(self, user_id, observed_item, unobserved_item, theta, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
+    def rec_loss(self, user_id, observed_item, unobserved_item, theta, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
         row_index, colomn_index, joint_enhanced_value = self.forward_link_predict(self.item_degrees, self.top_rate, theta)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
@@ -256,6 +256,7 @@ class Model(nn.Module):
         observed_score = torch.mul(user_embedding, item_embeddings[observed_item]).sum(dim=-1)
         unobserved_score = torch.mul(user_embedding, item_embeddings[unobserved_item]).sum(dim=-1)
         
+        # rec loss
         return -(observed_score - unobserved_score).sigmoid().log().mean()
 
     def link_predict(self, item_degrees, top_rate):
