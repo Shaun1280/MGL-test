@@ -7,70 +7,76 @@ from copy import deepcopy
 import torch_sparse
 import random
 
-class Generator(nn.Module):
+class EmbeddingGenerator(nn.Module):
     def __init__(self, user_num, item_num, item_feature_list, item_feature_matrix, dense_f_list_transforms, opt, device):
         super().__init__()
 
         self.user_num = user_num
         self.item_num = item_num
 
+        # Copy the item feature list to avoid modifying the original
         self.item_feature_list = deepcopy(item_feature_list)
         self.item_feature_matrix = item_feature_matrix.to(device)
 
-        self.item_dense_features = []
-        for dense_f in dense_f_list_transforms.values():
-            self.item_dense_features.append(dense_f.to(device))
+        # Move each dense feature to the specified device
+        self.item_dense_features = [dense_f.to(device) for dense_f in dense_f_list_transforms.values()]
 
+        # Remove the 'encoded' feature from the item feature list
         self.item_feature_list.remove({'feature_name':'encoded', 'feature_dim':self.item_num})
 
+        # store the embedding dimensions for each feature
         item_embedding_dims = defaultdict(int)
         for f in self.item_feature_list:
             item_embedding_dims[f['feature_name']] = opt.embedding_size
 
-        self.item_total_emb_dim = sum(list(item_embedding_dims.values())) + opt.dense_embedding_dim * len(self.item_dense_features)
+        # Calculate the total embedding dimension
+        self.item_total_emb_dim = sum(item_embedding_dims.values()) + opt.dense_embedding_dim * len(self.item_dense_features)
 
+        # Create an embedding layer for each item feature
         self.item_Embeddings = nn.ModuleList([nn.Embedding(feature['feature_dim'], item_embedding_dims[feature['feature_name']]) for feature in self.item_feature_list])
 
+        # Create a linear layer for each dense feature
         self.item_dense_Embeddings = nn.ModuleList([nn.Linear(dense_f.shape[1], opt.dense_embedding_dim, bias=False) for dense_f in self.item_dense_features])
 
+        # Define the encoder and decoder networks
         self.encoder = nn.Sequential(nn.Linear(self.item_total_emb_dim, 256, bias=True), nn.ReLU(), nn.Linear(256, 64, bias=True), nn.ReLU())
         self.decoder = nn.Sequential(nn.Linear(64, 256, bias=True), nn.ReLU(), nn.Linear(256, opt.id_embedding_size, bias=True))
 
-
     def encode(self, item_id):
+        # Embed the item features and pass them through the encoder
         batch_item_feature_embedded = self.embed_feature(item_id)
-
         batch_item_feature_encoded = self.encoder(batch_item_feature_embedded)
-
         return batch_item_feature_encoded
 
     def decode(self, batch_item_feature_encoded):
+        # Pass the encoded features through the decoder
         pre_item_id_embedded = self.decoder(batch_item_feature_encoded)
         return pre_item_id_embedded
 
-
     def embed_feature(self, item_id):
+        # Embed each item feature and concatenate them
         batch_item_feature_embedded = []
         batch_item_feature  = self.item_feature_matrix[item_id]
-        for i, f in enumerate(self.item_feature_list):
+        for i, _ in enumerate(self.item_feature_list):
             embedding_layer = self.item_Embeddings[i]
             batch_item_feature_i = batch_item_feature[:, i]
             batch_item_feature_i_embedded = embedding_layer(batch_item_feature_i)
-
             batch_item_feature_embedded.append(batch_item_feature_i_embedded)
 
         batch_item_feature_embedded = torch.cat(batch_item_feature_embedded, -1)
 
+        # Embed each dense feature and concatenate them with the item features
         dense_embeddings = []
         for i, dense_f in enumerate(self.item_dense_features):
             batch_dense_f = dense_f[item_id]
-            dense_embedded = self.item_dense_Embeddings[i](batch_dense_f.float()) / torch.sum(batch_dense_f.float(), dim = 1, keepdim= True)
+            embedding_layer = self.item_dense_Embeddings[i]
+            dense_embedded = embedding_layer(batch_dense_f.float()) / torch.sum(batch_dense_f.float(), dim=1, keepdim=True)
             dense_embeddings.append(dense_embedded)
 
         batch_item_feature_embedded = torch.cat([batch_item_feature_embedded] + dense_embeddings, dim=1)
 
         return batch_item_feature_embedded
-
+    
 class Model(nn.Module):
     def __init__(self, Data, opt, device):
         super().__init__()
@@ -100,7 +106,7 @@ class Model(nn.Module):
         self.item_degree_numpy = np.array(item_degree_list)
 
         self.device = device
-        self.generator = Generator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
+        self.generator = EmbeddingGenerator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
         self.create_adjacency_matrix()
 
     # see 4.1 L_GL
