@@ -179,7 +179,7 @@ def one_train(Data, opt):
                 for i, weight in enumerate(theta):
                     new_theta.append(weight - opt.local_lr * grad_F[i])
                 # J
-                J = model.q_forward(user_id, observed_item, unobserved_item, new_theta)
+                J = model.forward(user_id, observed_item, unobserved_item, new_theta)
 
                 # equation (17)
                 loss = J + opt.beta * F

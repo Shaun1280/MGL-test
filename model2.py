@@ -226,7 +226,7 @@ class Model(nn.Module):
         return row_index, colomn_index, joint_enhanced_value
 
 
-    def q_forward(self, user_id, pos_item, neg_item, theta, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
+    def forward(self, user_id, pos_item, neg_item, theta, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
         row_index, colomn_index, joint_enhanced_value = self.q_link_predict(self.item_degrees, self.top_rate, theta)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
