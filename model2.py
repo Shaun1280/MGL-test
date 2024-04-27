@@ -52,27 +52,27 @@ class EmbeddingGenerator(nn.Module):
 
     def embed_feature(self, item_id):
         # Embed each item feature and concatenate them
-        batch_item_feature_embedded = []
+        batch_item_feature_embedding = []
         batch_item_feature  = self.item_feature_matrix[item_id]
         for i, _ in enumerate(self.item_feature_list):
             embedding_layer = self.item_Embeddings[i]
             batch_item_feature_i = batch_item_feature[:, i]
-            batch_item_feature_i_embedded = embedding_layer(batch_item_feature_i)
-            batch_item_feature_embedded.append(batch_item_feature_i_embedded)
+            batch_item_feature_i_embedding = embedding_layer(batch_item_feature_i)
+            batch_item_feature_embedding.append(batch_item_feature_i_embedding)
 
-        batch_item_feature_embedded = torch.cat(batch_item_feature_embedded, -1)
+        batch_item_feature_embedding = torch.cat(batch_item_feature_embedding, -1)
 
         # Embed each dense feature and concatenate them with the item features
         dense_embeddings = []
         for i, dense_f in enumerate(self.item_dense_features):
             batch_dense_f = dense_f[item_id]
             embedding_layer = self.item_dense_Embeddings[i]
-            dense_embedded = embedding_layer(batch_dense_f.float()) / torch.sum(batch_dense_f.float(), dim=1, keepdim=True)
-            dense_embeddings.append(dense_embedded)
+            dense_embedding = embedding_layer(batch_dense_f.float()) / torch.sum(batch_dense_f.float(), dim=1, keepdim=True)
+            dense_embeddings.append(dense_embedding)
 
-        batch_item_feature_embedded = torch.cat([batch_item_feature_embedded] + dense_embeddings, dim=1)
+        batch_item_feature_embedding = torch.cat([batch_item_feature_embedding] + dense_embeddings, dim=1)
 
-        return batch_item_feature_embedded
+        return batch_item_feature_embedding
     
 class Model(nn.Module):
     def __init__(self, Data, opt, device):
@@ -226,32 +226,32 @@ class Model(nn.Module):
         encoder_2_bias = theta[3]
 
         top_item_feature = self.generator.embed_feature(self.top_item)
-        tail_item_feature = self.generator.embed_feature(self.sorted_item)
+        sorted_item_feature = self.generator.embed_feature(self.sorted_item)
 
         top_item_hidden = torch.mm(top_item_feature, encoder_0_weight.t()) + encoder_0_bias
-        top_item_embedded = torch.mm(top_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+        top_item_embedding = torch.mm(top_item_hidden, encoder_2_weight.t()) + encoder_2_bias
 
-        tail_item_hidden = torch.mm(tail_item_feature, encoder_0_weight.t()) + encoder_0_bias
-        tail_item_embedded = torch.mm(tail_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+        sorted_item_hidden = torch.mm(sorted_item_feature, encoder_0_weight.t()) + encoder_0_bias
+        sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_2_weight.t()) + encoder_2_bias
         
-        i2i_score = torch.mm(tail_item_embedded, top_item_embedded.t())
+        i2i_score = torch.mm(sorted_item_embedding, top_item_embedding.t())
 
         i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
         i2i_score_masked = i2i_score_masked.sigmoid()
 
-        tail_item_degree = torch.sum(i2i_score_masked, dim=1)
+        sorted_item_degree = torch.sum(i2i_score_masked, dim=1)
         top_item_degree = torch.sum(i2i_score_masked, dim=0)
-        tail_item_degree = torch.pow(tail_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
+        sorted_item_degree = torch.pow(sorted_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
         top_item_degree = torch.pow(top_item_degree + 1, -1).unsqueeze(0).expand_as(i2i_score_masked).reshape(-1)
 
 
-        tail_item_index = self.sorted_item.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
+        sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
         top_item_index = self.top_item.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
         enhanced_value = i2i_score_masked.reshape(-1)
 
-        row_index = (tail_item_index + self.user_num).unsqueeze(0)
+        row_index = (sorted_item_index + self.user_num).unsqueeze(0)
         colomn_index = (top_item_index + self.user_num).unsqueeze(0)
-        joint_enhanced_value = enhanced_value * tail_item_degree
+        joint_enhanced_value = enhanced_value * sorted_item_degree
         
         return row_index, colomn_index, joint_enhanced_value
 
@@ -273,27 +273,27 @@ class Model(nn.Module):
         return -(observed_score - unobserved_score).sigmoid().log().mean()
 
     def link_predict(self, item_degrees, top_rate):
-        top_item_embedded = self.generator.encode(self.top_item)
-        tail_item_embedded = self.generator.encode(self.sorted_item)
+        top_item_embedding = self.generator.encode(self.top_item)
+        sorted_item_embedding = self.generator.encode(self.sorted_item)
         
-        i2i_score = torch.mm(tail_item_embedded, top_item_embedded.t())
+        i2i_score = torch.mm(sorted_item_embedding, top_item_embedding.t())
 
         i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
         i2i_score_masked = i2i_score_masked.sigmoid()
 
-        tail_item_degree = torch.sum(i2i_score_masked, dim=1)
+        sorted_item_degree = torch.sum(i2i_score_masked, dim=1)
         top_item_degree = torch.sum(i2i_score_masked, dim=0)
-        tail_item_degree = torch.pow(tail_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
+        sorted_item_degree = torch.pow(sorted_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
         top_item_degree = torch.pow(top_item_degree + 1, -1).unsqueeze(0).expand_as(i2i_score_masked).reshape(-1)
 
 
-        tail_item_index = self.sorted_item.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
+        sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
         top_item_index = self.top_item.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
         enhanced_value = i2i_score_masked.reshape(-1)
 
-        row_index = (tail_item_index + self.user_num).unsqueeze(0)
+        row_index = (sorted_item_index + self.user_num).unsqueeze(0)
         colomn_index = (top_item_index + self.user_num).unsqueeze(0)
-        joint_enhanced_value = enhanced_value * tail_item_degree
+        joint_enhanced_value = enhanced_value * sorted_item_degree
         
         return row_index, colomn_index, joint_enhanced_value
 
