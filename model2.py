@@ -164,9 +164,9 @@ class Model(nn.Module):
 
         return all_embeddings
 
+
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
-
         mse_loss = nn.MSELoss()
         item1_aux_embedding = self.generator.encode(item1)
         item2_aux_embedding = self.generator.encode(item2) # batch size * d
@@ -180,9 +180,7 @@ class Model(nn.Module):
         score = torch.mm(item1_aux_embedding, item2_aux_embedding.permute(1, 0)).sigmoid()
         score_neg = torch.mm(item1_aux_embedding, item_neg_aux_embedding.permute(1, 0)).sigmoid()
 
-        loss = (mse_loss(score, torch.ones_like(score)) + mse_loss(score_neg, torch.zeros_like(score_neg))) / 2
-
-        return loss
+        return (mse_loss(score, torch.ones_like(score)) + mse_loss(score_neg, torch.zeros_like(score_neg))) / 2
 
 
     # see 4.2 L_PCL
