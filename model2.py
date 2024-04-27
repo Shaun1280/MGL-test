@@ -253,8 +253,8 @@ class Model(nn.Module):
         top_item_index = item_top.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
         enhanced_value = i2i_score_masked.reshape(-1)
 
-        row_index = (tail_item_index+self.user_num).unsqueeze(0)
-        colomn_index = (top_item_index+self.user_num).unsqueeze(0)
+        row_index = (tail_item_index + self.user_num).unsqueeze(0)
+        colomn_index = (top_item_index + self.user_num).unsqueeze(0)
         joint_enhanced_value = enhanced_value * tail_item_degree
         
         return row_index, colomn_index, joint_enhanced_value
@@ -305,8 +305,8 @@ class Model(nn.Module):
         top_item_index = item_top.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
         enhanced_value = i2i_score_masked.reshape(-1)
 
-        row_index = (tail_item_index+self.user_num).unsqueeze(0)
-        colomn_index = (top_item_index+self.user_num).unsqueeze(0)
+        row_index = (tail_item_index + self.user_num).unsqueeze(0)
+        colomn_index = (top_item_index + self.user_num).unsqueeze(0)
         joint_enhanced_value = enhanced_value * tail_item_degree
         
         return row_index, colomn_index, joint_enhanced_value
