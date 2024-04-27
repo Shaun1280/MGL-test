@@ -7,11 +7,6 @@ from copy import deepcopy
 import torch_sparse
 import random
 
-
-def inverse_sigmoid(x, k):
-    s = k / (k + np.exp(x / k))
-    return s
-
 class Generator(nn.Module):
     def __init__(self, user_num, item_num, item_feature_list, item_feature_matrix, dense_f_list_transforms, opt, device):
         super().__init__()
@@ -261,14 +256,14 @@ class Model(nn.Module):
         return row_index, colomn_index, joint_enhanced_value
 
 
-    def q_forward(self, user_id, pos_item, neg_item, fast_weights):
+    def q_forward(self, user_id, pos_item, neg_item, fast_weights, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
         row_index, colomn_index, joint_enhanced_value = self.q_link_predict(self.item_degrees, self.top_rate, fast_weights)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
 
         all_embeddings = [cur_embedding]
-        enhance_weight = torch.from_numpy(inverse_sigmoid(self.item_degree_numpy, self.convergence))
+        enhance_weight = torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))
         enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
         for i in range(self.L):
@@ -293,7 +288,7 @@ class Model(nn.Module):
 
 
     # full item set
-    def predict(self, user_id):
+    def predict(self, user_id, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
         row_index, colomn_index, joint_enhanced_value = self.link_predict(self.item_degrees, self.top_rate)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
@@ -301,7 +296,7 @@ class Model(nn.Module):
 
         all_embeddings = [cur_embedding]
 
-        enhance_weight = torch.from_numpy(inverse_sigmoid(self.item_degree_numpy, self.convergence))
+        enhance_weight = torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))
         enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
         for i in range(self.L):
