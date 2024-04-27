@@ -232,6 +232,7 @@ class Model(nn.Module):
         row_index, colomn_index, joint_enhanced_value = self.forward_link_predict(self.item_degrees, self.top_rate, theta)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
+        # equation (14)
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
 
         all_embeddings = [cur_embedding]
@@ -248,15 +249,12 @@ class Model(nn.Module):
         all_embeddings = torch.mean(all_embeddings, dim=0, keepdim=False)
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
-        user_embedded = user_embeddings[user_id]
-        observed_item_embedded = item_embeddings[observed_item]
-        unobserved_item_embedded = item_embeddings[unobserved_item]
-        pos_score = torch.mul(user_embedded, observed_item_embedded).sum(dim=-1, keepdim=False)
-        neg_score = torch.mul(user_embedded, unobserved_item_embedded).sum(dim=-1, keepdim=False)
-
-        l_rec = -(pos_score - neg_score).sigmoid().log().mean()
+        # equation (4)
+        user_embedding = user_embeddings[user_id]
+        pos_score = torch.mul(user_embedding, item_embeddings[observed_item]).sum(dim=-1, keepdim=False)
+        neg_score = torch.mul(user_embedding, item_embeddings[unobserved_item]).sum(dim=-1, keepdim=False)
         
-        return l_rec
+        return -(pos_score - neg_score).sigmoid().log().mean()
 
     def link_predict(self, item_degrees, top_rate):
 
