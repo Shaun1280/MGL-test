@@ -137,7 +137,18 @@ class Model(nn.Module):
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
 
 
-    def _gcn(self, cur_embedding, indice, joint_enhanced_value, enhanced_weight):
+    def _gcn(self, row_index, colomn_index, joint_enhanced_value):
+        def inverse_pop(x, k):
+            return k / (k + np.exp(x / k))
+
+        indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
+
+        cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
+
+        enhanced_weight = torch.cat([torch.zeros(self.user_num), \
+                                    torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
+                                        .to(self.device).float()
+
         all_embeddings = [cur_embedding]
 
         matrix_size = self.user_num + self.item_num
@@ -180,8 +191,7 @@ class Model(nn.Module):
         observed_item_org_embedding = self.generator.decode(observed_item_aux_embedding)
 
         def pop(x, k):
-            p = 1 - (k / (k + np.exp(x / k)))
-            return p
+            return 1 - (k / (k + np.exp(x / k)))
 
         # equation(11)
         item_degree = self.item_degree_numpy[observed_item.cpu().numpy()]
@@ -248,18 +258,10 @@ class Model(nn.Module):
         return row_index, colomn_index, joint_enhanced_value
 
 
-    def rec_loss(self, user_id, observed_item, unobserved_item, theta, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
+    def rec_loss(self, user_id, observed_item, unobserved_item, theta):
         row_index, colomn_index, joint_enhanced_value = self.forward_link_predict(self.item_degrees, self.top_rate, theta)
-        indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
-
-        # equation (14)
-        cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
-
-        enhanced_weight = torch.cat([torch.zeros(self.user_num), \
-                                    torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
-                                        .to(self.device).float()
         
-        all_embeddings = self._gcn(cur_embedding, indice, joint_enhanced_value, enhanced_weight)
+        all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
 
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
@@ -306,17 +308,10 @@ class Model(nn.Module):
         
         return row_index, colomn_index, joint_enhanced_value
 
-    def predict(self, user_id, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
+    def predict(self, user_id):
         row_index, colomn_index, joint_enhanced_value = self.link_predict(self.item_degrees, self.top_rate)
-        indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
-        cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
-
-        enhanced_weight = torch.cat([torch.zeros(self.user_num), \
-                                    torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
-                                        .to(self.device).float()
-
-        all_embeddings = self._gcn(cur_embedding, indice, joint_enhanced_value, enhanced_weight)
+        all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
 
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
