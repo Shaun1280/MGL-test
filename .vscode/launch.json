@@ -14,7 +14,7 @@
                 "--dataset_name",
                 "bx",
                 "--epoch",
-                "1",
+                "0",
                 // "--output",
                 // "model-bx-0.tar",
                 "--model",

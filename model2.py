@@ -258,7 +258,7 @@ class Model(nn.Module):
         
         all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
 
-        user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
+        user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num, self.item_num])
 
         # equation (4)
         user_embedding = user_embeddings[user_id]
