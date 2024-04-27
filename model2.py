@@ -173,23 +173,19 @@ class Model(nn.Module):
 
     # see equation (12) and (13)
     def _s_hat_sparse(self, top_item_embedding, sorted_item_embedding):
-        i2i_score = torch.mm(sorted_item_embedding, top_item_embedding.t())
+        s = torch.mm(sorted_item_embedding, top_item_embedding.t())
 
-        i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
-        i2i_score_masked = i2i_score_masked.sigmoid()
+        s_masked, indices = s.topk(self.link_topk, dim=-1)
+        s_masked = s_masked.sigmoid()
 
-        sorted_item_degree = torch.sum(i2i_score_masked, dim=1)
-        top_item_degree = torch.sum(i2i_score_masked, dim=0)
-        sorted_item_degree = torch.pow(sorted_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
-        top_item_degree = torch.pow(top_item_degree + 1, -1).unsqueeze(0).expand_as(i2i_score_masked).reshape(-1)
-
-
-        sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        top_item_index = self.top_item.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        enhanced_value = i2i_score_masked.reshape(-1)
-
+        sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(s).gather(1, indices).reshape(-1)
         row_index = (sorted_item_index + self.user_num).unsqueeze(0)
+
+        top_item_index = self.top_item.unsqueeze(0).expand_as(s).gather(1, indices).reshape(-1)
         colomn_index = (top_item_index + self.user_num).unsqueeze(0)
+
+        sorted_item_degree = torch.pow(torch.sum(s_masked, dim=1) + 1, -1).unsqueeze(1).expand_as(s_masked).reshape(-1)
+        enhanced_value = s_masked.reshape(-1)
         joint_enhanced_value = enhanced_value * sorted_item_degree
         
         return row_index, colomn_index, joint_enhanced_value
