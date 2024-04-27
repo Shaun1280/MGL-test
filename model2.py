@@ -297,32 +297,25 @@ class Model(nn.Module):
         
         return row_index, colomn_index, joint_enhanced_value
 
-    # full item set
     def predict(self, user_id, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
         row_index, colomn_index, joint_enhanced_value = self.link_predict(self.item_degrees, self.top_rate)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
-
         all_embeddings = [cur_embedding]
 
-        enhance_weight = torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))
-        enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
+        enhance_weight = torch.cat([torch.zeros(self.user_num), \
+                                    torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
+                                        .to(self.device).float()
 
-        for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
-            cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
-            cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
+        for _ in range(self.L):
+            original_embedding = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
+            enhanced_embedding = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
+            cur_embedding = original_embedding + enhance_weight.unsqueeze(-1) * enhanced_embedding
             all_embeddings.append(cur_embedding)
 
         all_embeddings = torch.stack(all_embeddings, dim=0)
         all_embeddings = torch.mean(all_embeddings, dim=0)
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
-        user_embedded = user_embeddings[user_id]
-
-        observed_item_embedded = item_embeddings
-
-        score = torch.mm(user_embedded, observed_item_embedded.t())
-
-        return score
+        return torch.mm(user_embeddings[user_id], item_embeddings.t())
