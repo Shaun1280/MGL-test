@@ -136,6 +136,23 @@ class Model(nn.Module):
         self.adjacency_matrix_normed = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), \
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
 
+
+    def _gcn(self, cur_embedding, indice, joint_enhanced_value, enhanced_weight):
+        all_embeddings = [cur_embedding]
+
+        matrix_size = self.user_num + self.item_num
+
+        for _ in range(self.L):
+            original_embedding = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
+            enhanced_embedding = torch_sparse.spmm(indice, joint_enhanced_value, matrix_size, matrix_size, cur_embedding)
+            cur_embedding = original_embedding + enhanced_weight.unsqueeze(-1) * enhanced_embedding
+            all_embeddings.append(cur_embedding)
+
+        all_embeddings = torch.stack(all_embeddings, dim=0)
+        all_embeddings = torch.mean(all_embeddings, dim=0)
+
+        return all_embeddings
+
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
 
@@ -237,21 +254,13 @@ class Model(nn.Module):
 
         # equation (14)
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
-        all_embeddings = [cur_embedding]
 
-        enhance_weight = torch.cat([torch.zeros(self.user_num), \
+        enhanced_weight = torch.cat([torch.zeros(self.user_num), \
                                     torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
                                         .to(self.device).float()
-        matrix_size = self.user_num + self.item_num
         
-        for _ in range(self.L):
-            original_embedding = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
-            enhanced_embedding  = torch_sparse.spmm(indice, joint_enhanced_value, matrix_size, matrix_size, cur_embedding)
-            cur_embedding = original_embedding + enhance_weight.unsqueeze(-1) * enhanced_embedding
-            all_embeddings.append(cur_embedding)
+        all_embeddings = self._gcn(cur_embedding, indice, joint_enhanced_value, enhanced_weight)
 
-        all_embeddings = torch.stack(all_embeddings, dim=0)
-        all_embeddings = torch.mean(all_embeddings, dim=0)
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
         # equation (4)
@@ -302,20 +311,13 @@ class Model(nn.Module):
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
-        all_embeddings = [cur_embedding]
 
-        enhance_weight = torch.cat([torch.zeros(self.user_num), \
+        enhanced_weight = torch.cat([torch.zeros(self.user_num), \
                                     torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
                                         .to(self.device).float()
 
-        for _ in range(self.L):
-            original_embedding = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
-            enhanced_embedding = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
-            cur_embedding = original_embedding + enhance_weight.unsqueeze(-1) * enhanced_embedding
-            all_embeddings.append(cur_embedding)
+        all_embeddings = self._gcn(cur_embedding, indice, joint_enhanced_value, enhanced_weight)
 
-        all_embeddings = torch.stack(all_embeddings, dim=0)
-        all_embeddings = torch.mean(all_embeddings, dim=0)
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
         return torch.mm(user_embeddings[user_id], item_embeddings.t())
