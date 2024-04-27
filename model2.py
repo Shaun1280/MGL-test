@@ -142,16 +142,15 @@ class Model(nn.Module):
             return k / (k + np.exp(x / k))
 
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
-
+        s_hat_norm_weight = torch.cat([torch.zeros(self.user_num), \
+                            torch.from_numpy(inverse_pop(np.array(self.item_degree_list), self.convergence))], dim=-1) \
+                                .to(self.device).float()
+        
         # equation (14)
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
         all_embeddings = [cur_embedding]
 
         matrix_size = self.user_num + self.item_num
-
-        s_hat_norm_weight = torch.cat([torch.zeros(self.user_num), \
-                            torch.from_numpy(inverse_pop(np.array(self.item_degree_list), self.convergence))], dim=-1) \
-                                .to(self.device).float()
 
         for _ in range(self.L):
             # equation (3)
