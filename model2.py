@@ -179,7 +179,7 @@ class Model(nn.Module):
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
 
 
-    def q_link_predict(self, item_degrees, top_rate, fast_weights):
+    def q_link_predict(self, item_degrees, top_rate, theta):
 
         sorted_item_degrees = sorted(item_degrees.items(), key=lambda x: x[1])
         item_list_sorted, d_item = zip(*sorted_item_degrees)
@@ -189,10 +189,10 @@ class Model(nn.Module):
         item_top = torch.tensor(item_list_sorted[-top_length:]).to(self.device)
 
 
-        encoder_0_weight = fast_weights[0]
-        encoder_0_bias = fast_weights[1]
-        encoder_2_weight = fast_weights[2]
-        encoder_2_bias = fast_weights[3]
+        encoder_0_weight = theta[0]
+        encoder_0_bias = theta[1]
+        encoder_2_weight = theta[2]
+        encoder_2_bias = theta[3]
 
         top_item_feature = self.generator.embed_feature(item_top)
         tail_item_feature = self.generator.embed_feature(item_tail)
@@ -226,8 +226,8 @@ class Model(nn.Module):
         return row_index, colomn_index, joint_enhanced_value
 
 
-    def q_forward(self, user_id, pos_item, neg_item, fast_weights, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
-        row_index, colomn_index, joint_enhanced_value = self.q_link_predict(self.item_degrees, self.top_rate, fast_weights)
+    def q_forward(self, user_id, pos_item, neg_item, theta, inverse_pop = lambda x, k: k / (k + np.exp(x / k))):
+        row_index, colomn_index, joint_enhanced_value = self.q_link_predict(self.item_degrees, self.top_rate, theta)
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
