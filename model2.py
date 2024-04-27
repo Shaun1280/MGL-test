@@ -44,14 +44,11 @@ class EmbeddingGenerator(nn.Module):
 
     def encode(self, item_id):
         # Embed the item features and pass them through the encoder
-        batch_item_feature_embedded = self.embed_feature(item_id)
-        batch_item_feature_encoded = self.encoder(batch_item_feature_embedded)
-        return batch_item_feature_encoded
+        return self.encoder(self.embed_feature(item_id))
 
     def decode(self, batch_item_feature_encoded):
         # Pass the encoded features through the decoder
-        pre_item_id_embedded = self.decoder(batch_item_feature_encoded)
-        return pre_item_id_embedded
+        return self.decoder(batch_item_feature_encoded)
 
     def embed_feature(self, item_id):
         # Embed each item feature and concatenate them
@@ -143,6 +140,7 @@ class Model(nn.Module):
 
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
 
+        # equation (14)
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
 
         enhanced_weight = torch.cat([torch.zeros(self.user_num), \
