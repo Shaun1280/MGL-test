@@ -194,6 +194,23 @@ class Model(nn.Module):
         
         return row_index, colomn_index, joint_enhanced_value
 
+    def _forward_theta(self, theta):
+        encoder_0_weight = theta[0]
+        encoder_0_bias = theta[1]
+        encoder_2_weight = theta[2]
+        encoder_2_bias = theta[3]
+
+        top_item_feature = self.generator.embed_feature(self.top_item)
+        sorted_item_feature = self.generator.embed_feature(self.sorted_item)
+
+        top_item_hidden = torch.mm(top_item_feature, encoder_0_weight.t()) + encoder_0_bias
+        top_item_embedding = torch.mm(top_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+
+        sorted_item_hidden = torch.mm(sorted_item_feature, encoder_0_weight.t()) + encoder_0_bias
+        sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+
+        return top_item_embedding, sorted_item_embedding
+
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
         mse_loss = nn.MSELoss()
@@ -237,21 +254,8 @@ class Model(nn.Module):
         l_pcl = torch.mul(keep, l_pcl).sum() / term_count # taking the average over a batch
         return l_pcl
 
-
     def rec_loss(self, user_id, observed_item, unobserved_item, theta):
-        encoder_0_weight = theta[0]
-        encoder_0_bias = theta[1]
-        encoder_2_weight = theta[2]
-        encoder_2_bias = theta[3]
-
-        top_item_feature = self.generator.embed_feature(self.top_item)
-        sorted_item_feature = self.generator.embed_feature(self.sorted_item)
-
-        top_item_hidden = torch.mm(top_item_feature, encoder_0_weight.t()) + encoder_0_bias
-        top_item_embedding = torch.mm(top_item_hidden, encoder_2_weight.t()) + encoder_2_bias
-
-        sorted_item_hidden = torch.mm(sorted_item_feature, encoder_0_weight.t()) + encoder_0_bias
-        sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+        top_item_embedding, sorted_item_embedding = self._forward_theta(theta)
 
         # sparse representation of S hat 
         row_index, colomn_index, joint_enhanced_value = self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
