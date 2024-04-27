@@ -142,9 +142,6 @@ class Model(nn.Module):
 
 
     def _gcn(self, row_index, colomn_index, joint_enhanced_value):
-        def inverse_pop(x, k):
-            return k / (k + np.exp(x / k))
-
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
         
         # equation (14)
