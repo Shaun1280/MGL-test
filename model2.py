@@ -172,8 +172,27 @@ class Model(nn.Module):
         return all_embeddings
 
     # see equation (12) and (13)
-    def _s_hat_sparse(self):
-        pass
+    def _s_hat_sparse(self, top_item_embedding, sorted_item_embedding):
+        i2i_score = torch.mm(sorted_item_embedding, top_item_embedding.t())
+
+        i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
+        i2i_score_masked = i2i_score_masked.sigmoid()
+
+        sorted_item_degree = torch.sum(i2i_score_masked, dim=1)
+        top_item_degree = torch.sum(i2i_score_masked, dim=0)
+        sorted_item_degree = torch.pow(sorted_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
+        top_item_degree = torch.pow(top_item_degree + 1, -1).unsqueeze(0).expand_as(i2i_score_masked).reshape(-1)
+
+
+        sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
+        top_item_index = self.top_item.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
+        enhanced_value = i2i_score_masked.reshape(-1)
+
+        row_index = (sorted_item_index + self.user_num).unsqueeze(0)
+        colomn_index = (top_item_index + self.user_num).unsqueeze(0)
+        joint_enhanced_value = enhanced_value * sorted_item_degree
+        
+        return row_index, colomn_index, joint_enhanced_value
 
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
@@ -234,26 +253,7 @@ class Model(nn.Module):
         sorted_item_hidden = torch.mm(sorted_item_feature, encoder_0_weight.t()) + encoder_0_bias
         sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_2_weight.t()) + encoder_2_bias
         
-        i2i_score = torch.mm(sorted_item_embedding, top_item_embedding.t())
-
-        i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
-        i2i_score_masked = i2i_score_masked.sigmoid()
-
-        sorted_item_degree = torch.sum(i2i_score_masked, dim=1)
-        top_item_degree = torch.sum(i2i_score_masked, dim=0)
-        sorted_item_degree = torch.pow(sorted_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
-        top_item_degree = torch.pow(top_item_degree + 1, -1).unsqueeze(0).expand_as(i2i_score_masked).reshape(-1)
-
-
-        sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        top_item_index = self.top_item.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        enhanced_value = i2i_score_masked.reshape(-1)
-
-        row_index = (sorted_item_index + self.user_num).unsqueeze(0)
-        colomn_index = (top_item_index + self.user_num).unsqueeze(0)
-        joint_enhanced_value = enhanced_value * sorted_item_degree
-        
-        return row_index, colomn_index, joint_enhanced_value
+        return self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
 
 
     def rec_loss(self, user_id, observed_item, unobserved_item, theta):
@@ -270,36 +270,15 @@ class Model(nn.Module):
         unobserved_score = torch.mul(user_embedding, item_embeddings[unobserved_item]).sum(dim=-1)
         
         # rec loss
-        return -(observed_score - unobserved_score).sigmoid().log().mean()
+        return -(observed_score - unobserved_score).sigmoid().log().mean() 
 
-    def link_predict(self, item_degrees, top_rate):
-        top_item_embedding = self.generator.encode(self.top_item)
-        sorted_item_embedding = self.generator.encode(self.sorted_item)
-        
-        i2i_score = torch.mm(sorted_item_embedding, top_item_embedding.t())
-
-        i2i_score_masked, indices = i2i_score.topk(self.link_topk, dim= -1)
-        i2i_score_masked = i2i_score_masked.sigmoid()
-
-        sorted_item_degree = torch.sum(i2i_score_masked, dim=1)
-        top_item_degree = torch.sum(i2i_score_masked, dim=0)
-        sorted_item_degree = torch.pow(sorted_item_degree + 1, -1).unsqueeze(1).expand_as(i2i_score_masked).reshape(-1)
-        top_item_degree = torch.pow(top_item_degree + 1, -1).unsqueeze(0).expand_as(i2i_score_masked).reshape(-1)
-
-
-        sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        top_item_index = self.top_item.unsqueeze(0).expand_as(i2i_score).gather(1, indices).reshape(-1)
-        enhanced_value = i2i_score_masked.reshape(-1)
-
-        row_index = (sorted_item_index + self.user_num).unsqueeze(0)
-        colomn_index = (top_item_index + self.user_num).unsqueeze(0)
-        joint_enhanced_value = enhanced_value * sorted_item_degree
-        
-        return row_index, colomn_index, joint_enhanced_value
 
     def predict(self, user_id):
+        top_item_embedding = self.generator.encode(self.top_item)
+        sorted_item_embedding = self.generator.encode(self.sorted_item)
+
         # sparse representation of S hat 
-        row_index, colomn_index, joint_enhanced_value = self.link_predict(self.item_degrees, self.top_rate)
+        row_index, colomn_index, joint_enhanced_value = self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
 
         all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
 
