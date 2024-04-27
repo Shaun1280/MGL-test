@@ -173,10 +173,10 @@ class Model(nn.Module):
         row_indices, col_indices = adjacency_matrix.indices()[0], adjacency_matrix.indices()[1]
         adjacency_matrix_value = adjacency_matrix.values()
 
-        norm_w = torch.pow(torch.sparse.sum(adjacency_matrix, dim=1).to_dense(), -1)
-        norm_w[torch.isinf(norm_w)] = 0
+        norm_deg = torch.pow(torch.sparse.sum(adjacency_matrix, dim=1).to_dense(), -1)
+        norm_deg[torch.isinf(norm_deg)] = 0
 
-        adjacency_matrix_norm_value = norm_w[row_indices] * adjacency_matrix_value
+        adjacency_matrix_norm_value = norm_deg[row_indices] * adjacency_matrix_value
         self.adjacency_matrix_normed = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), \
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
 
