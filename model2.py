@@ -238,7 +238,7 @@ class Model(nn.Module):
         return l_pcl
 
 
-    def forward_link_predict(self, item_degrees, top_rate, theta):
+    def rec_loss(self, user_id, observed_item, unobserved_item, theta):
         encoder_0_weight = theta[0]
         encoder_0_bias = theta[1]
         encoder_2_weight = theta[2]
@@ -252,13 +252,9 @@ class Model(nn.Module):
 
         sorted_item_hidden = torch.mm(sorted_item_feature, encoder_0_weight.t()) + encoder_0_bias
         sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_2_weight.t()) + encoder_2_bias
-        
-        return self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
 
-
-    def rec_loss(self, user_id, observed_item, unobserved_item, theta):
         # sparse representation of S hat 
-        row_index, colomn_index, joint_enhanced_value = self.forward_link_predict(self.item_degrees, self.top_rate, theta)
+        row_index, colomn_index, joint_enhanced_value = self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
         
         all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
 
