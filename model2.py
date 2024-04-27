@@ -234,15 +234,17 @@ class Model(nn.Module):
 
         # equation (14)
         cur_embedding = torch.cat([self.user_id_Embeddings.weight, self.item_id_Embeddings.weight], dim=0)
-
         all_embeddings = [cur_embedding]
-        enhance_weight = torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))
-        enhance_weight = torch.cat([torch.zeros(self.user_num), enhance_weight], dim=-1).to(self.device).float()
 
-        for i in range(self.L):
-            cur_embedding_ori = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
-            cur_embedding_enhanced = torch_sparse.spmm(indice, joint_enhanced_value, self.user_num + self.item_num, self.user_num + self.item_num, cur_embedding)
-            cur_embedding = cur_embedding_ori + enhance_weight.unsqueeze(-1) * cur_embedding_enhanced
+        enhance_weight = torch.cat([torch.zeros(self.user_num), \
+                                    torch.from_numpy(inverse_pop(self.item_degree_numpy, self.convergence))], dim=-1) \
+                                        .to(self.device).float()
+        matrix_size = self.user_num + self.item_num
+        
+        for _ in range(self.L):
+            original_embedding = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
+            enhanced_embedding  = torch_sparse.spmm(indice, joint_enhanced_value, matrix_size, matrix_size, cur_embedding)
+            cur_embedding = original_embedding + enhance_weight.unsqueeze(-1) * enhanced_embedding
             all_embeddings.append(cur_embedding)
 
         all_embeddings = torch.stack(all_embeddings, dim=0)
@@ -251,10 +253,10 @@ class Model(nn.Module):
 
         # equation (4)
         user_embedding = user_embeddings[user_id]
-        pos_score = torch.mul(user_embedding, item_embeddings[observed_item]).sum(dim=-1)
-        neg_score = torch.mul(user_embedding, item_embeddings[unobserved_item]).sum(dim=-1)
+        observed_score = torch.mul(user_embedding, item_embeddings[observed_item]).sum(dim=-1)
+        unobserved_score = torch.mul(user_embedding, item_embeddings[unobserved_item]).sum(dim=-1)
         
-        return -(pos_score - neg_score).sigmoid().log().mean()
+        return -(observed_score - unobserved_score).sigmoid().log().mean()
 
     def link_predict(self, item_degrees, top_rate):
 
