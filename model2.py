@@ -146,7 +146,7 @@ class Model(nn.Module):
         # this determines whether the pcl loss will be omitted
         keep = torch.distributions.binomial.Binomial(1, torch.from_numpy(item_pop)).sample().to(self.device)
 
-        l_pcl = functional.mse_loss(observed_item_org_embedding, self.item_id_Embeddings(observed_item), reduction='none').mean(dim=-1, keepdim=False) 
+        l_pcl = functional.mse_loss(observed_item_org_embedding, self.item_id_Embeddings(observed_item), reduction='none').mean(dim=-1) 
         
         term_count = keep.sum()
 
@@ -246,13 +246,13 @@ class Model(nn.Module):
             all_embeddings.append(cur_embedding)
 
         all_embeddings = torch.stack(all_embeddings, dim=0)
-        all_embeddings = torch.mean(all_embeddings, dim=0, keepdim=False)
+        all_embeddings = torch.mean(all_embeddings, dim=0)
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
         # equation (4)
         user_embedding = user_embeddings[user_id]
-        pos_score = torch.mul(user_embedding, item_embeddings[observed_item]).sum(dim=-1, keepdim=False)
-        neg_score = torch.mul(user_embedding, item_embeddings[unobserved_item]).sum(dim=-1, keepdim=False)
+        pos_score = torch.mul(user_embedding, item_embeddings[observed_item]).sum(dim=-1)
+        neg_score = torch.mul(user_embedding, item_embeddings[unobserved_item]).sum(dim=-1)
         
         return -(pos_score - neg_score).sigmoid().log().mean()
 
@@ -310,7 +310,7 @@ class Model(nn.Module):
             all_embeddings.append(cur_embedding)
 
         all_embeddings = torch.stack(all_embeddings, dim=0)
-        all_embeddings = torch.mean(all_embeddings, dim=0, keepdim=False)
+        all_embeddings = torch.mean(all_embeddings, dim=0)
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
         user_embedded = user_embeddings[user_id]
