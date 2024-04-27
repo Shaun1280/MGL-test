@@ -107,7 +107,7 @@ class Model(nn.Module):
 
         self.device = device
         self.generator = EmbeddingGenerator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
-        self.create_adjacency_matrix()
+        self._create_adjacency_matrix()
 
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
@@ -157,7 +157,7 @@ class Model(nn.Module):
         return l_pcl
         
 
-    def create_adjacency_matrix(self):
+    def _create_adjacency_matrix(self):
         index = [self.interact_train['userid'].tolist(), self.interact_train['itemid'].tolist()]
         value = [1.0] * len(self.interact_train)
 
