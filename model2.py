@@ -128,10 +128,10 @@ class Model(nn.Module):
         row_indices, col_indices = adjacency_matrix.indices()[0], adjacency_matrix.indices()[1]
         adjacency_matrix_value = adjacency_matrix.values()
 
-        norm_deg = torch.pow(torch.sparse.sum(adjacency_matrix, dim=1).to_dense(), -1)
-        norm_deg[torch.isinf(norm_deg)] = 0
+        norm_deg = torch.pow(torch.sparse.sum(adjacency_matrix, dim=1).to_dense() + 1, -0.5)
+        norm_deg2 = torch.pow(torch.sparse.sum(adjacency_matrix, dim=0).to_dense() + 1, -0.5)
 
-        adjacency_matrix_norm_value = norm_deg[row_indices] * adjacency_matrix_value
+        adjacency_matrix_norm_value = norm_deg[row_indices] * adjacency_matrix_value * norm_deg2[col_indices]
 
         # nomalized A_G
         self.adjacency_matrix_normed = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), \
@@ -165,14 +165,17 @@ class Model(nn.Module):
 
         return all_embeddings
 
+
     # see equation (12) and (13)
     def _s_hat_sparse(self, top_item_embedding, sorted_item_embedding):
         s = torch.mm(sorted_item_embedding, top_item_embedding.t())
 
+        # [item_num, link_topk]
         s_masked, indices = s.topk(self.link_topk, dim=-1)
         s_masked = s_masked.sigmoid()
 
         sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(s).gather(1, indices).reshape(-1)
+        # for every item in sparse representation
         row_index = (sorted_item_index + self.user_num).unsqueeze(0)
 
         top_item_index = self.top_item.unsqueeze(0).expand_as(s).gather(1, indices).reshape(-1)
@@ -183,6 +186,7 @@ class Model(nn.Module):
         joint_enhanced_value = enhanced_value * sorted_item_degree
         
         return row_index, colomn_index, joint_enhanced_value
+
 
     def _forward_theta(self, theta):
         encoder_0_weight = theta[0]
@@ -200,6 +204,7 @@ class Model(nn.Module):
         sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_2_weight.t()) + encoder_2_bias
 
         return top_item_embedding, sorted_item_embedding
+
 
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
