@@ -85,7 +85,6 @@ class Model(nn.Module):
         self.L = opt.L
         self.convergence = opt.convergence
         self.link_topk = opt.link_topk
-        self.dense_f_list_transforms = Data.dense_f_list_transforms
         self.interact_train = Data.interact_train
 
         self.user_num = Data.user_num
@@ -95,8 +94,6 @@ class Model(nn.Module):
         self.item_num = Data.item_num
         self.item_degrees = Data.item_degrees
         self.item_id_Embeddings = nn.Embedding(self.item_num, opt.id_embedding_size)
-        self.item_feature_list = Data.item_feature_list
-        self.item_feature_matrix = Data.item_feature_matrix
 
         # sort by id
         self.sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[0])
@@ -110,7 +107,7 @@ class Model(nn.Module):
         self.top_item = torch.tensor(sorted_item_list[-self.top_length:]).to(self.device)
         self.sorted_item = torch.tensor(sorted_item_list).to(self.device)
 
-        self.generator = EmbeddingGenerator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
+        self.generator = EmbeddingGenerator(self.user_num, self.item_num, Data.item_feature_list, Data.item_feature_matrix, Data.dense_f_list_transforms, opt, device)
         self._create_adjacency_matrix()
 
 
