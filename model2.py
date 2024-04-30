@@ -181,9 +181,10 @@ class Model(nn.Module):
         top_item_index = self.top_item.unsqueeze(0).expand_as(s).gather(1, indices).reshape(-1)
         colomn_index = (top_item_index + self.user_num).unsqueeze(0)
 
-        sorted_item_degree = torch.pow(torch.sum(s_masked, dim=1) + 1, -1).unsqueeze(1).expand_as(s_masked).reshape(-1)
+        degree_norm = torch.pow(torch.sum(s_masked, dim=1) + 1, -0.5).unsqueeze(1).expand_as(s_masked).reshape(-1)
+        degree_norm2 = torch.pow(torch.sum(s_masked, dim=0) + 1, -0.5).unsqueeze(0).expand_as(s_masked).reshape(-1)
         enhanced_value = s_masked.reshape(-1)
-        joint_enhanced_value = enhanced_value * sorted_item_degree
+        joint_enhanced_value = enhanced_value * degree_norm * degree_norm2
         
         return row_index, colomn_index, joint_enhanced_value
 
