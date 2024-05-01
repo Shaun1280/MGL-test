@@ -236,7 +236,7 @@ class Model(nn.Module):
 
         # equation(11)
         item_degree = np.array(self.item_degree_list)[observed_item.cpu().numpy()]
-        item_pop = pop(item_degree, self.convergence)
+        item_pop = torch.tensor(pop(item_degree, self.convergence)).to(self.device)
 
         l_pcl = functional.mse_loss(observed_item_org_embedding, self.item_id_Embeddings(observed_item), reduction='none').mean(dim=-1) 
         
