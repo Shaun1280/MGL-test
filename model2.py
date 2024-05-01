@@ -85,7 +85,6 @@ class Model(nn.Module):
         self.L = opt.L
         self.convergence = opt.convergence
         self.link_topk = opt.link_topk
-        self.dense_f_list_transforms = Data.dense_f_list_transforms
         self.interact_train = Data.interact_train
 
         self.user_num = Data.user_num
@@ -95,8 +94,6 @@ class Model(nn.Module):
         self.item_num = Data.item_num
         self.item_degrees = Data.item_degrees
         self.item_id_Embeddings = nn.Embedding(self.item_num, opt.id_embedding_size)
-        self.item_feature_list = Data.item_feature_list
-        self.item_feature_matrix = Data.item_feature_matrix
 
         # sort by id
         self.sorted_item_degrees = sorted(self.item_degrees.items(), key=lambda x: x[0])
@@ -110,7 +107,7 @@ class Model(nn.Module):
         self.top_item = torch.tensor(sorted_item_list[-self.top_length:]).to(self.device)
         self.sorted_item = torch.tensor(sorted_item_list).to(self.device)
 
-        self.generator = EmbeddingGenerator(self.user_num, self.item_num, self.item_feature_list, self.item_feature_matrix, self.dense_f_list_transforms, opt, device)
+        self.generator = EmbeddingGenerator(self.user_num, self.item_num, Data.item_feature_list, Data.item_feature_matrix, Data.dense_f_list_transforms, opt, device)
         self._create_adjacency_matrix()
 
 
@@ -131,17 +128,17 @@ class Model(nn.Module):
         row_indices, col_indices = adjacency_matrix.indices()[0], adjacency_matrix.indices()[1]
         adjacency_matrix_value = adjacency_matrix.values()
 
-        norm_deg = torch.pow(torch.sparse.sum(adjacency_matrix, dim=1).to_dense(), -1)
-        norm_deg[torch.isinf(norm_deg)] = 0
+        norm_deg = torch.pow(torch.sparse.sum(adjacency_matrix, dim=1).to_dense() + 1, -0.5)
+        norm_deg2 = torch.pow(torch.sparse.sum(adjacency_matrix, dim=0).to_dense() + 1, -0.5)
 
-        adjacency_matrix_norm_value = norm_deg[row_indices] * adjacency_matrix_value
+        adjacency_matrix_norm_value = norm_deg[row_indices] * adjacency_matrix_value * norm_deg2[col_indices]
 
         # nomalized A_G
         self.adjacency_matrix_normed = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=0), \
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
 
 
-    def _gcn(self, row_index, colomn_index, joint_enhanced_value):
+    def _gcn(self, row_index, colomn_index, s_hat):
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
         
         # equation (14)
@@ -156,7 +153,7 @@ class Model(nn.Module):
             original_embedding = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
 
             # contribution of S_hat
-            enhanced_embedding = torch_sparse.spmm(indice, joint_enhanced_value, matrix_size, matrix_size, cur_embedding)
+            enhanced_embedding = torch_sparse.spmm(indice, s_hat, matrix_size, matrix_size, cur_embedding)
 
             # sum up
             cur_embedding = original_embedding + enhanced_embedding
@@ -168,41 +165,48 @@ class Model(nn.Module):
 
         return all_embeddings
 
+
     # see equation (12) and (13)
     def _s_hat_sparse(self, top_item_embedding, sorted_item_embedding):
         s = torch.mm(sorted_item_embedding, top_item_embedding.t())
 
+        # [item_num, link_topk]
         s_masked, indices = s.topk(self.link_topk, dim=-1)
         s_masked = s_masked.sigmoid()
 
         sorted_item_index = self.sorted_item.unsqueeze(1).expand_as(s).gather(1, indices).reshape(-1)
+        # for every item in sparse representation
         row_index = (sorted_item_index + self.user_num).unsqueeze(0)
 
         top_item_index = self.top_item.unsqueeze(0).expand_as(s).gather(1, indices).reshape(-1)
         colomn_index = (top_item_index + self.user_num).unsqueeze(0)
 
-        sorted_item_degree = torch.pow(torch.sum(s_masked, dim=1) + 1, -1).unsqueeze(1).expand_as(s_masked).reshape(-1)
+        # regularization
+        degree_norm = torch.pow(torch.sum(s_masked, dim=1) + 1, -0.5).unsqueeze(1).expand_as(s_masked).reshape(-1)
+        degree_norm2 = torch.pow(torch.sum(s_masked, dim=0) + 1, -0.5).unsqueeze(0).expand_as(s_masked).reshape(-1)
         enhanced_value = s_masked.reshape(-1)
-        joint_enhanced_value = enhanced_value * sorted_item_degree
+        s_hat = enhanced_value * degree_norm * degree_norm2
         
-        return row_index, colomn_index, joint_enhanced_value
+        return row_index, colomn_index, s_hat
+
 
     def _forward_theta(self, theta):
-        encoder_0_weight = theta[0]
-        encoder_0_bias = theta[1]
-        encoder_2_weight = theta[2]
-        encoder_2_bias = theta[3]
+        encoder_layer0_weight = theta[0]
+        encoder_layer0_bias = theta[1]
+        encoder_layer1_weight = theta[2]
+        encoder_layer1_bias = theta[3]
 
         top_item_feature = self.generator.embed_feature(self.top_item)
         sorted_item_feature = self.generator.embed_feature(self.sorted_item)
 
-        top_item_hidden = torch.mm(top_item_feature, encoder_0_weight.t()) + encoder_0_bias
-        top_item_embedding = torch.mm(top_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+        top_item_hidden = torch.mm(top_item_feature, encoder_layer0_weight.t()) + encoder_layer0_bias
+        top_item_embedding = torch.mm(top_item_hidden, encoder_layer1_weight.t()) + encoder_layer1_bias
 
-        sorted_item_hidden = torch.mm(sorted_item_feature, encoder_0_weight.t()) + encoder_0_bias
-        sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+        sorted_item_hidden = torch.mm(sorted_item_feature, encoder_layer0_weight.t()) + encoder_layer0_bias
+        sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_layer1_weight.t()) + encoder_layer1_bias
 
         return top_item_embedding, sorted_item_embedding
+
 
     # see 4.1 L_GL
     def gl_loss(self, item1, item2):
@@ -232,19 +236,11 @@ class Model(nn.Module):
 
         # equation(11)
         item_degree = np.array(self.item_degree_list)[observed_item.cpu().numpy()]
-        item_pop = pop(item_degree, self.convergence)
-        
-        # this determines whether the pcl loss will be omitted
-        keep = torch.distributions.binomial.Binomial(1, torch.from_numpy(item_pop)).sample().to(self.device)
+        item_pop = torch.tensor(pop(item_degree, self.convergence)).to(self.device)
 
         l_pcl = functional.mse_loss(observed_item_org_embedding, self.item_id_Embeddings(observed_item), reduction='none').mean(dim=-1) 
         
-        term_count = keep.sum()
-
-        if term_count.item() == 0:
-            return 0 * torch.mul(keep, l_pcl).sum()
-        
-        l_pcl = torch.mul(keep, l_pcl).sum() / term_count # taking the average over a batch
+        l_pcl = torch.mul(item_pop, l_pcl).sum() / item_pop.sum() # taking the average over a batch
         return l_pcl
 
     def rec_loss(self, user_id, observed_item, unobserved_item, theta):
@@ -271,9 +267,9 @@ class Model(nn.Module):
         sorted_item_embedding = self.generator.encode(self.sorted_item)
 
         # sparse representation of S hat 
-        row_index, colomn_index, joint_enhanced_value = self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
+        row_index, colomn_index, s_hat = self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
 
-        all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
+        all_embeddings = self._gcn(row_index, colomn_index, s_hat)
 
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 

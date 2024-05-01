@@ -1,6 +1,6 @@
 # Meta Graph Learning for Long-tail Recommendation
 
-This repository is the official implementation of MGL.
+This repository is the re-implementation of MGL.
 
 ## Requirements
 
@@ -70,32 +70,5 @@ python train2.py --dataset bx --epoch 100
 ```
 
 > Output: the file "model/model.tar"
-
-## Prediction
-Expected model/model.tar prediction result (user item freq threshold = 6, 0 epochs):
-```
-python train2.py --dataset bx --epoch 0 --model model-bx-0.tar
-
-Namespace(K_list=[10, 20, 50], L=3, batch_size=128, beta=0.1, convergence=40, cross_validate=None, dataset_name='bx', dense_embedding_dim=16, embedding_size=8, epoch=0, id_embedding_size=64, implcit_bottom=None, item_fre_threshold=None, link_topk=10, loadFilename=None, load_mode='test_set', local_lr=0.01, lr=0.001, reg_lambda=0.02, seperate_rate=0.2, social_data=False, split=None, top_rate=0.1, user_fre_threshold=None, weight_decay=0.01)
-Meta_final_2
-NDCG@10: 0.0017971450737689833
-RECALL@10: 0.003714139344262295
-
-head_NDCG@10: 0.002752671401081448
-head_RECALL@10: 0.006147540983606557
-
-tail_NDCG@10: 0.001431234263287013
-tail_RECALL@10: 0.0028176229508196722
-
-NDCG@20: 0.0024347239929624507
-RECALL@20: 0.006275614754098361
-
-head_NDCG@20: 0.00399619155693823
-head_RECALL@20: 0.011142418032786885
-
-tail_NDCG@20: 0.0019995704716205464
-tail_RECALL@20: 0.005122950819672131
-
-```
 
 
