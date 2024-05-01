@@ -138,7 +138,7 @@ class Model(nn.Module):
                                                                       adjacency_matrix_norm_value, (matrix_size, matrix_size)).to(self.device)
 
 
-    def _gcn(self, row_index, colomn_index, joint_enhanced_value):
+    def _gcn(self, row_index, colomn_index, s_hat):
         indice = torch.cat([row_index, colomn_index], dim=0).to(self.device)
         
         # equation (14)
@@ -153,7 +153,7 @@ class Model(nn.Module):
             original_embedding = torch.mm(self.adjacency_matrix_normed.to_dense(), cur_embedding)
 
             # contribution of S_hat
-            enhanced_embedding = torch_sparse.spmm(indice, joint_enhanced_value, matrix_size, matrix_size, cur_embedding)
+            enhanced_embedding = torch_sparse.spmm(indice, s_hat, matrix_size, matrix_size, cur_embedding)
 
             # sum up
             cur_embedding = original_embedding + enhanced_embedding
@@ -275,9 +275,9 @@ class Model(nn.Module):
         sorted_item_embedding = self.generator.encode(self.sorted_item)
 
         # sparse representation of S hat 
-        row_index, colomn_index, joint_enhanced_value = self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
+        row_index, colomn_index, s_hat = self._s_hat_sparse(top_item_embedding, sorted_item_embedding)
 
-        all_embeddings = self._gcn(row_index, colomn_index, joint_enhanced_value)
+        all_embeddings = self._gcn(row_index, colomn_index, s_hat)
 
         user_embeddings, item_embeddings = torch.split(all_embeddings, [self.user_num,self.item_num])
 
