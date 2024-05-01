@@ -2,6 +2,12 @@
 
 This repository is the re-implementation of MGL.
 
+## Experiment Environment
+- ubuntu 18.04
+- GPU L20(48GB) * 1
+- CPU20 vCPU Intel(R) Xeon(R) Platinum 8457C
+- RAM 100GB
+
 ## Requirements
 
 To install requirements:
@@ -9,7 +15,7 @@ To install requirements:
 ```setup
 python 3.8.19
 
-# may not work
+# this may not work
 conda env create -f environment.yaml -n mgl
 
 # CUDA 11.0
@@ -26,10 +32,6 @@ pip install torch-sparse==0.6.9 torch-scatter==2.0.7 tqdm==4.54.1 pandas==1.4.4 
 To prepare the data for the model training:
 
 ```setup
-old:
-python data_process.py
-
-new:
 python data_process2.py
 ```
 
@@ -62,12 +64,14 @@ interact_train.pkl:
 To train the model(s) in the paper:
 
 ```setup
-old:
-python train.py
-
-new:
 python train2.py --dataset bx --epoch 100
+
+or:
+python train2.py --dataset bx --epoch 100 --output <model_name> --model <model_name>
 ```
+
+To test a model:
+python train2.py --dataset bx --epoch 0 --model <model_name>
 
 > Output: the file "model/model.tar"
 
