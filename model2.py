@@ -237,18 +237,10 @@ class Model(nn.Module):
         # equation(11)
         item_degree = np.array(self.item_degree_list)[observed_item.cpu().numpy()]
         item_pop = pop(item_degree, self.convergence)
-        
-        # this determines whether the pcl loss will be omitted
-        keep = torch.distributions.binomial.Binomial(1, torch.from_numpy(item_pop)).sample().to(self.device)
 
         l_pcl = functional.mse_loss(observed_item_org_embedding, self.item_id_Embeddings(observed_item), reduction='none').mean(dim=-1) 
         
-        term_count = keep.sum()
-
-        if term_count.item() == 0:
-            return 0 * torch.mul(keep, l_pcl).sum()
-        
-        l_pcl = torch.mul(keep, l_pcl).sum() / term_count # taking the average over a batch
+        l_pcl = torch.mul(item_pop, l_pcl).sum() / item_pop.sum() # taking the average over a batch
         return l_pcl
 
     def rec_loss(self, user_id, observed_item, unobserved_item, theta):
