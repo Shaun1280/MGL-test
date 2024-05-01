@@ -1,6 +1,17 @@
 # Meta Graph Learning for Long-tail Recommendation
 
-This repository is the re-implementation of MGL.
+[This repository](https://github.com/Shaun1280/MGL-test) is the re-implementation of [MGL](https://github.com/weicy15/MGL).
+
+## File Descriptions:
+- ml-1m/transform_ml.py: data preprocessing of movielens-1m dataset
+- bx/transform_bx.py: data preprocessing of bookcrossing dataset
+- dataset/bx: preprocessed bookcrossing data
+- dataset/ml: preprocessed movielens-1m data
+- data_process2.py: another preprocessing, mainly for creating train, val, and test sets
+- load_data2.py: data loader and feature processing
+- metric.py: for calculating metrics
+- model2.py: for embeddings, prediction and loss
+- train2.py: for training, validating and testing
 
 ## Experiment Environment
 - ubuntu 18.04
@@ -71,8 +82,10 @@ python train2.py --dataset bx --epoch 100 --output <model_name> --model <model_n
 ```
 
 To test a model:
+```setup
 python train2.py --dataset bx --epoch 0 --model <model_name>
+```
 
-> Output: the file "model/model.tar"
+> Output: the file "model/model.tar" or "model/<model_name>"
 
 
