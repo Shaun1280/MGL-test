@@ -191,19 +191,19 @@ class Model(nn.Module):
 
 
     def _forward_theta(self, theta):
-        encoder_0_weight = theta[0]
-        encoder_0_bias = theta[1]
-        encoder_2_weight = theta[2]
-        encoder_2_bias = theta[3]
+        encoder_layer0_weight = theta[0]
+        encoder_layer0_bias = theta[1]
+        encoder_layer1_weight = theta[2]
+        encoder_layer1_bias = theta[3]
 
         top_item_feature = self.generator.embed_feature(self.top_item)
         sorted_item_feature = self.generator.embed_feature(self.sorted_item)
 
-        top_item_hidden = torch.mm(top_item_feature, encoder_0_weight.t()) + encoder_0_bias
-        top_item_embedding = torch.mm(top_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+        top_item_hidden = torch.mm(top_item_feature, encoder_layer0_weight.t()) + encoder_layer0_bias
+        top_item_embedding = torch.mm(top_item_hidden, encoder_layer1_weight.t()) + encoder_layer1_bias
 
-        sorted_item_hidden = torch.mm(sorted_item_feature, encoder_0_weight.t()) + encoder_0_bias
-        sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_2_weight.t()) + encoder_2_bias
+        sorted_item_hidden = torch.mm(sorted_item_feature, encoder_layer0_weight.t()) + encoder_layer0_bias
+        sorted_item_embedding = torch.mm(sorted_item_hidden, encoder_layer1_weight.t()) + encoder_layer1_bias
 
         return top_item_embedding, sorted_item_embedding
 
